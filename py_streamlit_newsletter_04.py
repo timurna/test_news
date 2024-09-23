@@ -2,9 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
-import matplotlib.pyplot as plt
-from io import BytesIO
-from PIL import Image
 
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
@@ -60,13 +57,13 @@ def set_mobile_css():
         """, unsafe_allow_html=True
     )
 
-# Glossary content
 # Glossary content with metrics integrated
 glossary = {
     'Score Metrics': '',  
+    'Overall Score': 'Player\'s overall performance across all metrics.',
     'Defensive Score': 'Player\'s overall defensive performance. Metrics: TcklMade%, TcklAtt, Tckl, AdjTckl, TcklA3, Blocks, Int, AdjInt, Clrnce',
     'Goal Threat Score': 'Player\'s threat to score goals. Metrics: Goal, Shot/Goal, MinPerGoal, ExpG, xGOT, xG +/-, Shot, SOG, Shot conversion, OnTarget%',
-    'Offensive Score': 'Player\'s overall offensive performance. Metrics: 2ndAst, Ast, ExpG, ExpGExPn, Goal, GoalExPn, KeyPass, MinPerChnc, MinPerGoal, PsAtt, PsCmp, Pass%, PsIntoA3rd, PsRec, ProgCarry, ProgPass, Shot, Shot conversion, Shot/Goal, SOG, Success1v1, Take on into the Box, TakeOn, ThrghBalls, TouchOpBox, Touches, xA, xA +/-, xG +/-, xGOT',
+    'Offensive Score': 'Player\'s overall offensive performance. Metrics: 2ndAst, Ast, ExpG, ExpGExPn, Goal, GoalExPn, KeyPass, MinPerChnc, MinPerGoal, PsAtt, PsCmp, Pass%, PsIntoA3rd, PsRec, ProgCarry, ProgPass, Shot, Shot conversion, Shot/Goal, SOG, OnTarget%, Success1v1, Take on into the Box, TakeOn, ThrghBalls, TouchOpBox, Touches, xA, xA +/-, xG +/-, xGOT',
     'Physical Offensive Score': 'Player\'s physical contributions to offensive play. Metrics: PSV-99, Distance, M/min, HSR Distance, HSR Count, Sprint Distance, Sprint Count, HI Distance, HI Count, Medium Acceleration Count, High Acceleration Count, Medium Deceleration Count, High Deceleration Count',
     'Physical Defensive Score': 'Player\'s physical contributions to defensive play. Metrics: Distance OTIP, M/min OTIP, HSR Distance OTIP, HSR Count OTIP, Sprint Distance OTIP, Sprint Count OTIP, HI Distance OTIP, HI Count OTIP, Medium Acceleration Count OTIP, High Acceleration Count OTIP, Medium Deceleration Count OTIP, High Deceleration Count OTIP',
     
@@ -143,13 +140,16 @@ glossary = {
 }
 
 # Load the dataset from Parquet
-file_path = 'https://raw.githubusercontent.com/timurna/news-fcb/main/newupclean1.parquet'
+file_path = 'https://raw.githubusercontent.com/timurna/news-fcb/main/newupclean2.parquet'
 data = pd.read_parquet(file_path)
 
 # Calculate age from birthdate
 data['DOB'] = pd.to_datetime(data['DOB'])
 today = datetime.today()
 data['Age'] = data['DOB'].apply(lambda x: today.year - x.year - ((today.month, today.day) < (x.month, x.day)))
+
+# Ensure 'Date' is in datetime format
+data['Date'] = pd.to_datetime(data['Date'])
 
 # Define position groups with potential overlaps
 position_groups = {
@@ -175,7 +175,7 @@ percentage_metrics = ['TcklMade%', 'Pass%', 'OnTarget%']
 # Remove percentage signs and convert to numeric
 for metric in percentage_metrics:
     if metric in data.columns:
-        data[metric] = pd.to_numeric(data[metric].str.replace('%', ''), errors='coerce')
+        data[metric] = pd.to_numeric(data[metric].astype(str).str.replace('%', ''), errors='coerce')
 
 # Convert other text-based numbers to numeric
 physical_metrics = ['PSV-99', 'Distance', 'M/min', 'HSR Distance', 'HSR Count', 'Sprint Distance', 'Sprint Count',
@@ -221,7 +221,7 @@ fill_na_conditionally(data, goal_threat_metrics)
 
 # Initialize the scalers
 scaler = MinMaxScaler(feature_range=(0, 10))
-quantile_transformer = QuantileTransformer(output_distribution='uniform')
+quantile_transformer = QuantileTransformer(output_distribution='uniform', random_state=0)
 
 # Define physical metrics subsets
 physical_offensive_metrics = [
@@ -259,6 +259,34 @@ data['Defensive Score'] = scaler.fit_transform(
 data['Goal Threat Score'] = scaler.fit_transform(
     quantile_transformer.fit_transform(data[goal_threat_metrics].fillna(0))
 ).mean(axis=1)
+
+# **Add the Overall Score by combining all metrics**
+# Create a list of all metrics used in the scores
+all_metrics = list(set(
+    physical_offensive_metrics + physical_defensive_metrics + 
+    offensive_metrics + defensive_metrics + goal_threat_metrics
+))
+
+data['Overall Score'] = scaler.fit_transform(
+    quantile_transformer.fit_transform(data[all_metrics].fillna(0))
+).mean(axis=1)
+
+# **Calculate Cumulative Averages for Metrics**
+
+# Ensure the data is sorted
+data = data.sort_values(['League', 'playerFullName', 'Date'])
+
+# Create a list of metrics for which we want cumulative averages
+metrics_for_cum_avg = ['Overall Score', 'Offensive Score', 'Defensive Score', 
+                       'Physical Offensive Score', 'Physical Defensive Score', 'Goal Threat Score'] + \
+                       physical_offensive_metrics + physical_defensive_metrics + offensive_metrics + defensive_metrics
+
+# Remove duplicates
+metrics_for_cum_avg = list(set(metrics_for_cum_avg))
+
+# Calculate cumulative averages for each player in each league
+for metric in metrics_for_cum_avg:
+    data[f'{metric}_cum_avg'] = data.groupby(['League', 'playerFullName'])[metric].expanding().mean().reset_index(level=[0,1], drop=True)
 
 # Ensure 'authenticated' is in session state before anything else
 if 'authenticated' not in st.session_state:
@@ -323,20 +351,23 @@ else:
 
             selected_week = filtered_weeks[filtered_weeks['Matchday'] == selected_matchday]['Week'].values[0]
 
+            # Get the date of the selected matchday
+            selected_date = filtered_weeks[filtered_weeks['Matchday'] == selected_matchday]['max'].values[0]
+
         with col3:
             position_group_options = list(position_groups.keys())
             selected_position_group = st.selectbox("Select Position Group", position_group_options, key="select_position_group")
 
-    # Filter the data by the selected position group
+    # Filter the data by the selected position group and up to the selected matchday
     league_and_position_data = data[
         (data['League'] == selected_league) &
-        (data['Week'] == selected_week) &
+        (data['Date'] <= selected_date) &
         (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
     ]
 
     # Use a container to make the expandable sections span the full width
     with st.container():
-        tooltip_headers = {metric: glossary.get(metric, '') for metric in ['Offensive Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score', 'Goal Threat Score'] + physical_metrics + offensive_metrics + defensive_metrics}
+        tooltip_headers = {metric: glossary.get(metric, '') for metric in ['Overall Score', 'Offensive Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score', 'Goal Threat Score'] + physical_metrics + offensive_metrics + defensive_metrics}
 
         def display_metric_tables(metrics_list, title):
             with st.expander(title, expanded=False):  # Setting expanded=False to keep it closed by default
@@ -345,12 +376,14 @@ else:
                         st.write(f"Metric {metric} not found in the data")
                         continue
 
-                    league_and_position_data[metric] = pd.to_numeric(league_and_position_data[metric], errors='coerce')
+                    # Get the latest data for each player up to the selected date
+                    latest_data = league_and_position_data.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
 
                     # Round the Age column to ensure no decimals
-                    league_and_position_data['Age'] = league_and_position_data['Age'].round(0).astype(int)
+                    latest_data['Age'] = latest_data['Age'].round(0).astype(int)
 
-                    top10 = league_and_position_data[['playerFullName', 'Age', 'newestTeam', 'Position_x', metric]].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+                    # Prepare the data
+                    top10 = latest_data[['playerFullName', 'Age', 'newestTeam', 'Position_x', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
                     if top10.empty:
                         st.header(f"Top 10 Players in {metric}")
@@ -366,7 +399,15 @@ else:
 
                         st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
                         top10.rename(columns={'playerFullName': 'Player', 'newestTeam': 'Team', 'Position_x': 'Position'}, inplace=True)
-                        top10[metric] = top10[metric].apply(lambda x: f"{x:.2f}")
+
+                        # Format the metric value with cumulative average
+                        top10[metric] = top10.apply(
+                            lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
+                            axis=1
+                        )
+
+                        # Remove the cumulative average column from the DataFrame as it's now included in the metric column
+                        top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
 
                         def color_row(row):
                             return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
@@ -380,7 +421,7 @@ else:
 
                         st.write(top10_html, unsafe_allow_html=True)
 
-        display_metric_tables(['Offensive Score', 'Goal Threat Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score'], "Score Metrics")
+        display_metric_tables(['Overall Score', 'Offensive Score', 'Goal Threat Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score'], "Score Metrics")
         display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
         display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
         display_metric_tables(offensive_metrics, "Offensive Metrics")
@@ -390,7 +431,7 @@ else:
     with st.expander("Glossary"):
         sections = {
             "Score Metrics": [
-                'Defensive Score', 'Goal Threat Score', 'Offensive Score', 
+                'Overall Score', 'Defensive Score', 'Goal Threat Score', 'Offensive Score', 
                 'Physical Defensive Score', 'Physical Offensive Score'
             ],
             "Offensive Metrics": [
@@ -406,19 +447,18 @@ else:
                 'TcklAtt', 'Tckl', 'TcklMade%', 'TcklA3'
             ],
             "Physical Offensive Metrics": [
-                'Distance', 'M/min', 'HSR Distance', 'HSR Count', 
+                'PSV-99', 'Distance', 'M/min', 'HSR Distance', 'HSR Count', 
                 'Sprint Distance', 'Sprint Count', 'HI Distance', 
                 'HI Count', 'Medium Acceleration Count', 
                 'High Acceleration Count', 'Medium Deceleration Count', 
                 'High Deceleration Count'
             ],
             "Physical Defensive Metrics": [
-                'Distance OTIP', 'M/min OTIP', 'HI Distance OTIP', 
-                'HI Count OTIP', 'High Acceleration Count OTIP', 
-                'High Deceleration Count OTIP', 'HSR Count OTIP', 
-                'HSR Distance OTIP', 'Medium Acceleration Count OTIP', 
-                'Medium Deceleration Count OTIP', 'Sprint Count OTIP', 
-                'Sprint Distance OTIP'
+                'Distance OTIP', 'M/min OTIP', 'HSR Distance OTIP', 
+                'HSR Count OTIP', 'Sprint Distance OTIP', 'Sprint Count OTIP',
+                'HI Distance OTIP', 'HI Count OTIP', 'Medium Acceleration Count OTIP', 
+                'High Acceleration Count OTIP', 'Medium Deceleration Count OTIP', 
+                'High Deceleration Count OTIP'
             ]
         }
 
