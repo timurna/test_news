@@ -125,7 +125,7 @@ else:
     # Google Drive direct download link
     file_url = 'https://drive.google.com/uc?export=download&id=1NNRDRxUR9NjPbNjQtH0qwJNJjP2w_wEl'
 
-    # Load the dataset from Google Drive using caching
+    # Only load the dataset **after** successful login
     data = download_and_load_data(file_url)
 
     if data is None:
@@ -134,6 +134,7 @@ else:
         # Glossary content and the rest of your logic for displaying tables, metrics, etc.
         set_mobile_css()
         # Continue with the rest of your app logic...
+
 
 if data is None:
     st.error("Failed to load data")
