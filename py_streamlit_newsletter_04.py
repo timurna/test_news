@@ -17,7 +17,7 @@ def authenticate(username, password):
         # Retrieve the credentials from st.secrets (stored in Streamlit Cloud's secret management)
         stored_username = st.secrets["credentials"]["username"]
         stored_password = st.secrets["credentials"]["password"]
-    except KeyError as e:  # Ensure this line is aligned with the try block
+    except KeyError as e:
         # If the credentials are not found, display an error message
         st.error(f"Error: {e}. Credentials not found in Streamlit secrets.")
         return False
@@ -125,15 +125,21 @@ else:
     # Google Drive direct download link
     file_url = 'https://drive.google.com/uc?export=download&id=1NNRDRxUR9NjPbNjQtH0qwJNJjP2w_wEl'
 
-    # Only load the dataset **after** successful login
+    # Load the dataset **after** successful login
     data = download_and_load_data(file_url)
 
     if data is None:
         st.error("Failed to load data")
     else:
-        # Glossary content and the rest of your logic for displaying tables, metrics, etc.
+        # Apply CSS and display main app content
         set_mobile_css()
-        # Continue with the rest of your app logic...
+
+        # Now you can proceed with the rest of your app logic
+        st.write("Data successfully loaded!")
+
+        # Continue with your logic of displaying metrics, tables, etc.
+        # ...
+
 
 if data is None:
     st.error("Failed to load data")
