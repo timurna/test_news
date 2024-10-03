@@ -85,7 +85,7 @@ def download_and_load_data(url):
         st.error(f"Error reading parquet file: {e}")
         return None
 
-# Dropbox direct download link
+# Dropbox direct download link (updated)
 file_url = 'https://dl.dropboxusercontent.com/s/eam4iplbrlyaqm7n5fpaw/newupclean3.parquet'
 
 # Load the dataset from Dropbox using caching
@@ -94,7 +94,7 @@ data = download_and_load_data(file_url)
 if data is None:
     st.error("Failed to load data")
 else:
-    # Continue with the rest of the logic for your app...
+    # Rest of your Streamlit app continues here...
     
     # Glossary content with metrics integrated
     glossary = {
