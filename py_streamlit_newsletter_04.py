@@ -31,7 +31,6 @@ def login():
         if authenticate(username, password):
             st.session_state.authenticated = True
             st.success("Login successful!")
-            st.experimental_rerun()
         else:
             st.error("Invalid username or password")
 
@@ -92,9 +91,8 @@ else:
         # Proceed with your app
         set_mobile_css()
         st.write("Data successfully loaded!")
+        # ... rest of your code ...
 
-if data is None:
-    st.error("Failed to load data")
 else:
     # Glossary content with metrics integrated
     glossary = {
