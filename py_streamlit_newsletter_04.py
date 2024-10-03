@@ -1,4 +1,23 @@
-    except KeyError as e:
+import streamlit as st
+import pandas as pd
+import requests
+from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
+import os
+
+# Set the page configuration to wide mode
+st.set_page_config(layout="wide")
+
+# Ensure 'authenticated' and login keys are initialized in session state
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+
+def authenticate(username, password):
+    try:
+        # Retrieve the credentials from st.secrets (stored in Streamlit Cloud's secret management)
+        stored_username = st.secrets["credentials"]["username"]
+        stored_password = st.secrets["credentials"]["password"]
+    except KeyError as e:  # Ensure this line is aligned with the try block
         # If the credentials are not found, display an error message
         st.error(f"Error: {e}. Credentials not found in Streamlit secrets.")
         return False
@@ -115,8 +134,6 @@ else:
         # Glossary content and the rest of your logic for displaying tables, metrics, etc.
         set_mobile_css()
         # Continue with the rest of your app logic...
-
-
 
 if data is None:
     st.error("Failed to load data")
