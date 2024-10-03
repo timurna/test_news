@@ -8,94 +8,141 @@ import os
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
 
-# Function to apply custom CSS for mobile responsiveness
-def set_mobile_css():
-    st.markdown(
-        """
-        <style>
-        @media only screen and (max-width: 600px) {
-            .stApp {
-                padding: 0 10px;
-            }
-            .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-                font-size: 1.2em !important;
-            }
-            .headline {
-                font-size: 1.5em !important;
-            }
-            .stDataFrame th, .stDataFrame td {
-                font-size: 0.8em !important;
-            }
-            .css-12w0qpk, .css-15tx938, .stSelectbox label, .stTable th, .stTable thead th, .dataframe th {
-                font-size: 0.8em !important;
-            }
-        }
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            border-bottom: 1px dotted black;
-        }
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 120px;
-            background-color: black;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 5px 0;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -60px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-        </style>
-        """, unsafe_allow_html=True
-    )
+# Ensure 'authenticated' and login keys are initialized in session state
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
 
-# Decorator to cache data loading
-@st.cache
-def download_and_load_data(url):
-    # Define the file path for the downloaded parquet file
-    parquet_file = '/tmp/newupclean3.parquet'
-    
-    # Download the file from Dropbox using requests
+if 'login_username' not in st.session_state:
+    st.session_state['login_username'] = ""
+
+if 'login_password' not in st.session_state:
+    st.session_state['login_password'] = ""
+
+def authenticate(username, password):
     try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raises HTTPError for bad responses
-        with open(parquet_file, 'wb') as f:
-            f.write(response.content)
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error downloading file: {e}")
-        return None
+        # Retrieve the credentials from st.secrets (stored in Streamlit Cloud's secret management)
+        stored_username = st.secrets["credentials"]["username"]
+        stored_password = st.secrets["credentials"]["password"]
+    except KeyError as e:
+        # If the credentials are not found, display an error message
+        st.error(f"Error: {e}. Credentials not found in Streamlit secrets.")
+        return False
     
-    # Load the parquet file using pandas
-    try:
-        data = pd.read_parquet(parquet_file)
-        data['DOB'] = pd.to_datetime(data['DOB'])
-        data['Date'] = pd.to_datetime(data['Date'])
-        return data
-    except Exception as e:
-        st.error(f"Error reading parquet file: {e}")
-        return None
+    # Compare provided credentials with the stored ones
+    return username == stored_username and password == stored_password
 
-# Dropbox direct download link (updated)
-file_url = 'https://dl.dropboxusercontent.com/s/eam4iplbrlyaqm7n5fpaw/newupclean3.parquet'
+def login():
+    # Capture user input for username and password
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
+    
+    if st.button("Login", key="login_button"):
+        if authenticate(username, password):
+            st.session_state.authenticated = True
+        else:
+            st.error("Invalid username or password")
 
-# Load the dataset from Dropbox using caching
-data = download_and_load_data(file_url)
+# Ensure proper authentication
+if not st.session_state.authenticated:
+    login()
+else:
+    # The user has logged in, continue with the main app
+    st.write("Welcome! You are logged in.")
+
+    # Function to apply custom CSS for mobile responsiveness
+    def set_mobile_css():
+        st.markdown(
+            """
+            <style>
+            @media only screen and (max-width: 600px) {
+                .stApp {
+                    padding: 0 10px;
+                }
+                .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+                    font-size: 1.2em !important;
+                }
+                .headline {
+                    font-size: 1.5em !important;
+                }
+                .stDataFrame th, .stDataFrame td {
+                    font-size: 0.8em !important;
+                }
+                .css-12w0qpk, .css-15tx938, .stSelectbox label, .stTable th, .stTable thead th, .dataframe th {
+                    font-size: 0.8em !important;
+                }
+            }
+            .tooltip {
+                position: relative;
+                display: inline-block;
+                border-bottom: 1px dotted black;
+            }
+            .tooltip .tooltiptext {
+                visibility: hidden;
+                width: 120px;
+                background-color: black;
+                color: #fff;
+                text-align: center;
+                border-radius: 6px;
+                padding: 5px 0;
+                position: absolute;
+                z-index: 1;
+                bottom: 125%;
+                left: 50%;
+                margin-left: -60px;
+                opacity: 0;
+                transition: opacity 0.3s;
+            }
+            .tooltip:hover .tooltiptext {
+                visibility: visible;
+                opacity: 1;
+            }
+            </style>
+            """, unsafe_allow_html=True
+        )
+
+    # Function to download and load the file from Google Drive
+    @st.cache
+    def download_and_load_data(url):
+        # Define the file path for the downloaded parquet file
+        parquet_file = '/tmp/newupclean3.parquet'
+        
+        # Download the file using requests
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # Raises HTTPError for bad responses
+            with open(parquet_file, 'wb') as f:
+                f.write(response.content)
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error downloading file: {e}")
+            return None
+        
+        # Load the parquet file using pandas
+        try:
+            data = pd.read_parquet(parquet_file)
+            data['DOB'] = pd.to_datetime(data['DOB'])
+            data['Date'] = pd.to_datetime(data['Date'])
+            return data
+        except Exception as e:
+            st.error(f"Error reading parquet file: {e}")
+            return None
+
+    # Google Drive direct download link
+    file_url = 'https://drive.google.com/uc?export=download&id=1NNRDRxUR9NjPbNjQtH0qwJNJjP2w_wEl'
+
+    # Load the dataset from Google Drive using caching
+    data = download_and_load_data(file_url)
+
+    if data is None:
+        st.error("Failed to load data")
+    else:
+        # Glossary content and the rest of your logic for displaying tables, metrics, etc.
+        set_mobile_css()
+        # Continue with the rest of your app logic...
+
 
 if data is None:
     st.error("Failed to load data")
 else:
-    # Rest of your Streamlit app continues here...
-    
     # Glossary content with metrics integrated
     glossary = {
         'Score Metrics': '',  
@@ -105,8 +152,7 @@ else:
         'Offensive Score': 'Player\'s overall offensive performance. Metrics: 2ndAst, Ast, ExpG, ExpGExPn, Goal, GoalExPn, KeyPass, MinPerChnc, MinPerGoal, PsAtt, PsCmp, Pass%, PsIntoA3rd, PsRec, ProgCarry, ProgPass, Shot, Shot conversion, Shot/Goal, SOG, OnTarget%, Success1v1, Take on into the Box, TakeOn, ThrghBalls, TouchOpBox, Touches, xA, xA +/-, xG +/-, xGOT',
         'Physical Offensive Score': 'Player\'s physical contributions to offensive play. Metrics: PSV-99, Distance, M/min, HSR Distance, HSR Count, Sprint Distance, Sprint Count, HI Distance, HI Count, Medium Acceleration Count, High Acceleration Count, Medium Deceleration Count, High Deceleration Count',
         'Physical Defensive Score': 'Player\'s physical contributions to defensive play. Metrics: Distance OTIP, M/min OTIP, HSR Distance OTIP, HSR Count OTIP, Sprint Distance OTIP, Sprint Count OTIP, HI Distance OTIP, HI Count OTIP, Medium Acceleration Count OTIP, High Acceleration Count OTIP, Medium Deceleration Count OTIP, High Deceleration Count OTIP',
-        
-        'Offensive Metrics': '',
+        'Offensive Metrics': '',  
         '2ndAst': 'The pass that assists the assist leading to a goal.',
         'Ast': 'Assists',
         'ExpG': 'Expected goals.',
@@ -138,7 +184,6 @@ else:
         'xA +/-': 'Expected Assists +/- difference.',
         'xG +/-': 'Expected goals +/- difference.',
         'xGOT': 'Expected goals on target.',
-        
         'Defensive Metrics': '',  
         'AdjInt': 'Adjusted interceptions, considering context.',
         'AdjTckl': 'Adjusted tackles, considering context.',
@@ -149,7 +194,6 @@ else:
         'TcklMade%': 'Percentage of tackles successfully made out of total tackle attempts.',
         'TcklA3': 'Tackles made in the attacking third.',
         'TcklAtt': 'Tackles attempted.',
-        
         'Physical Metrics': '',  
         'PSV-99': 'Peak Sprint Velocity (Maximum Speed).',
         'Distance': 'Total distance covered by the player during the match.',
