@@ -25,14 +25,25 @@ def authenticate(username, password):
     return username == stored_username and password == stored_password
 
 def login():
-    username = st.text_input("Username", key="login_username")
-    password = st.text_input("Password", type="password", key="login_password")
-    if st.button("Login", key="login_button"):
+    # Store username and password in session state to maintain values across reruns
+    if 'login_username' not in st.session_state:
+        st.session_state.login_username = ''
+    if 'login_password' not in st.session_state:
+        st.session_state.login_password = ''
+
+    st.text_input("Username", key="login_username")
+    st.text_input("Password", type="password", key="login_password")
+
+    def authenticate_and_login():
+        username = st.session_state.login_username
+        password = st.session_state.login_password
         if authenticate(username, password):
             st.session_state.authenticated = True
             st.success("Login successful!")
         else:
             st.error("Invalid username or password")
+
+    st.button("Login", on_click=authenticate_and_login)
 
 # Ensure proper authentication
 if not st.session_state.authenticated:
@@ -47,6 +58,34 @@ else:
             """
             <style>
             /* Your CSS styles */
+            /* Example CSS */
+            .tooltip {
+                position: relative;
+                display: inline-block;
+                cursor: pointer;
+            }
+
+            .tooltip .tooltiptext {
+                visibility: hidden;
+                width: 200px;
+                background-color: #555;
+                color: #fff;
+                text-align: center;
+                border-radius: 6px;
+                padding: 5px;
+                position: absolute;
+                z-index: 1;
+                bottom: 125%; /* Position above the text */
+                left: 50%;
+                margin-left: -100px;
+                opacity: 0;
+                transition: opacity 0.3s;
+            }
+
+            .tooltip:hover .tooltiptext {
+                visibility: visible;
+                opacity: 1;
+            }
             </style>
             """, unsafe_allow_html=True
         )
@@ -97,13 +136,13 @@ else:
             'Score Metrics': '',
             'Overall Score': 'Player\'s overall performance across all metrics.',
             'Defensive Score': 'Player\'s overall defensive performance. Metrics: TcklMade%, TcklAtt, Tckl, AdjTckl, TcklA3, Blocks, Int, AdjInt, Clrnce',
-            'Goal Threat Score': 'Player\'s threat to score goals. Metrics: Goal, Shot/Goal, MinPerGoal, ExpG, xGOT, xG +/-, Shot, SOG, Shot conversion, OnTarget%',
-            'Offensive Score': 'Player\'s overall offensive performance. Metrics: 2ndAst, Ast, ExpG, ExpGExPn, Goal, GoalExPn, KeyPass, MinPerChnc, MinPerGoal, PsAtt, PsCmp, Pass%, PsIntoA3rd, PsRec, ProgCarry, ProgPass, Shot, Shot conversion, Shot/Goal, SOG, OnTarget%, Success1v1, Take on into the Box, TakeOn, ThrghBalls, TouchOpBox, Touches, xA, xA +/-, xG +/-, xGOT',
+            'Goal Threat Score': 'Player\'s threat to score goals. Metrics: Goal, Shot/Goal, MinPerGoal, ExpG, xGOT, xG +/- , Shot, SOG, Shot conversion, OnTarget%',
+            'Offensive Score': 'Player\'s overall offensive performance. Metrics: 2ndAst, Ast, ExpG, ExpGExPn, Goal, GoalExPn, KeyPass, MinPerChnc, MinPerGoal, PsAtt, PsCmp, Pass%, PsIntoA3rd, PsRec, ProgCarry, ProgPass, Shot, Shot conversion, Shot/Goal, SOG, OnTarget%, Success1v1, Take on into the Box, TakeOn, ThrghBalls, TouchOpBox, Touches, xA, xA +/- , xG +/- , xGOT',
             'Physical Offensive Score': 'Player\'s physical contributions to offensive play. Metrics: PSV-99, Distance, M/min, HSR Distance, HSR Count, Sprint Distance, Sprint Count, HI Distance, HI Count, Medium Acceleration Count, High Acceleration Count, Medium Deceleration Count, High Deceleration Count',
             'Physical Defensive Score': 'Player\'s physical contributions to defensive play. Metrics: Distance OTIP, M/min OTIP, HSR Distance OTIP, HSR Count OTIP, Sprint Distance OTIP, Sprint Count OTIP, HI Distance OTIP, HI Count OTIP, Medium Acceleration Count OTIP, High Acceleration Count OTIP, Medium Deceleration Count OTIP, High Deceleration Count OTIP',
             'Offensive Metrics': '',
             '2ndAst': 'The pass that assists the assist leading to a goal.',
-            'Ast': 'Assists',
+            'Ast': 'Assists.',
             'ExpG': 'Expected goals.',
             'ExpGExPn': 'Expected goals excluding penalties.',
             'Goal': 'Goals scored.',
@@ -130,8 +169,8 @@ else:
             'TouchOpBox': 'Number of touches in the opponent\'s penalty box.',
             'Touches': 'Total number of touches.',
             'xA': 'Expected assists.',
-            'xA +/-': 'Expected Assists +/- difference.',
-            'xG +/-': 'Expected goals +/- difference.',
+            'xA +/-': 'Expected assists compared to actual assists.',
+            'xG +/-': 'Expected goals compared to actual goals.',
             'xGOT': 'Expected goals on target.',
             'Defensive Metrics': '',
             'AdjInt': 'Adjusted interceptions, considering context.',
@@ -195,7 +234,8 @@ else:
         }
 
         # Assign positions to multiple groups
-        data['Position Groups'] = data['Position_x'].apply(lambda pos: [group for group, positions in position_groups.items() if pos in positions])
+        data['Position Groups'] = data['Position_x'].apply(
+            lambda pos: [group for group, positions in position_groups.items() if pos in positions])
 
         # Convert text-based numbers to numeric, handling percentage metrics
         percentage_metrics = ['TcklMade%', 'Pass%', 'OnTarget%']
@@ -206,12 +246,13 @@ else:
                 data[metric] = pd.to_numeric(data[metric].astype(str).str.replace('%', ''), errors='coerce')
 
         # Convert other text-based numbers to numeric
-        physical_metrics = ['PSV-99', 'Distance', 'M/min', 'HSR Distance', 'HSR Count', 'Sprint Distance', 'Sprint Count',
-                            'HI Distance', 'HI Count', 'Medium Acceleration Count', 'High Acceleration Count',
-                            'Medium Deceleration Count', 'High Deceleration Count', 'Distance OTIP', 'M/min OTIP',
-                            'HSR Distance OTIP', 'HSR Count OTIP', 'Sprint Distance OTIP', 'Sprint Count OTIP',
-                            'HI Distance OTIP', 'HI Count OTIP', 'Medium Acceleration Count OTIP',
-                            'High Acceleration Count OTIP', 'Medium Deceleration Count OTIP', 'High Deceleration Count OTIP']
+        physical_metrics = ['PSV-99', 'Distance', 'M/min', 'HSR Distance', 'HSR Count', 'Sprint Distance',
+                            'Sprint Count', 'HI Distance', 'HI Count', 'Medium Acceleration Count',
+                            'High Acceleration Count', 'Medium Deceleration Count', 'High Deceleration Count',
+                            'Distance OTIP', 'M/min OTIP', 'HSR Distance OTIP', 'HSR Count OTIP',
+                            'Sprint Distance OTIP', 'Sprint Count OTIP', 'HI Distance OTIP', 'HI Count OTIP',
+                            'Medium Acceleration Count OTIP', 'High Acceleration Count OTIP',
+                            'Medium Deceleration Count OTIP', 'High Deceleration Count OTIP']
 
         offensive_metrics = [
             '2ndAst', 'Ast', 'ExpG', 'ExpGExPn', 'Goal', 'GoalExPn', 'KeyPass',
