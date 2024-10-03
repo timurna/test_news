@@ -125,9 +125,10 @@ else:
     # Google Drive direct download link
     file_url = 'https://drive.google.com/uc?export=download&id=1NNRDRxUR9NjPbNjQtH0qwJNJjP2w_wEl'
 
-    # Only load the dataset **after** successful login
+    # Load the dataset **only** after successful login
     data = download_and_load_data(file_url)
 
+    # Check if the data was loaded successfully
     if data is None:
         st.error("Failed to load data")
     else:
@@ -139,6 +140,7 @@ else:
 
         # Continue with your logic of displaying metrics, tables, etc.
         # ...
+
 
 if data is None:
     st.error("Failed to load data")
