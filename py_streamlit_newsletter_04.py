@@ -57,6 +57,18 @@ def set_mobile_css():
         """, unsafe_allow_html=True
     )
 
+# Decorator to cache data loading
+@st.cache
+def load_data(file_path):
+    data = pd.read_parquet(file_path)
+    data['DOB'] = pd.to_datetime(data['DOB'])
+    data['Date'] = pd.to_datetime(data['Date'])
+    return data
+
+# Load the dataset from Parquet using caching
+file_path = 'https://raw.githubusercontent.com/timurna/test_news/main/newupclean3.parquet'
+data = load_data(file_path)
+
 # Glossary content with metrics integrated
 glossary = {
     'Score Metrics': '',  
@@ -138,10 +150,6 @@ glossary = {
     'Sprint Distance': 'Total distance covered while sprinting.',
     'Sprint Distance OTIP': 'Sprint distance covered while opponent has ball possession (OTIP).'
 }
-
-# Load the dataset from Parquet
-file_path = 'https://raw.githubusercontent.com/timurna/test_news/main/newupclean3.parquet'
-data = pd.read_parquet(file_path)
 
 # Calculate age from birthdate
 data['DOB'] = pd.to_datetime(data['DOB'])
