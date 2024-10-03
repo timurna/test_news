@@ -97,7 +97,7 @@ else:
         )
 
     # Function to download and load the file from Google Drive
-    @st.cache
+    @st.cache_data  # Use st.cache_data instead of deprecated st.cache
     def download_and_load_data(url):
         # Define the file path for the downloaded parquet file
         parquet_file = '/tmp/newupclean3.parquet'
@@ -125,7 +125,7 @@ else:
     # Google Drive direct download link
     file_url = 'https://drive.google.com/uc?export=download&id=1NNRDRxUR9NjPbNjQtH0qwJNJjP2w_wEl'
 
-    # Load the dataset **after** successful login
+    # Only load the dataset **after** successful login
     data = download_and_load_data(file_url)
 
     if data is None:
