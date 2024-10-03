@@ -59,15 +59,17 @@ def set_mobile_css():
 
 # Decorator to cache data loading
 @st.cache
-def load_data(file_path):
-    data = pd.read_parquet(file_path)
+def load_data(file_url):
+    data = pd.read_parquet(file_url)
     data['DOB'] = pd.to_datetime(data['DOB'])
     data['Date'] = pd.to_datetime(data['Date'])
     return data
 
-# Load the dataset from Parquet using caching
-file_path = 'https://raw.githubusercontent.com/timurna/test_news/main/newupclean3.parquet'
-data = load_data(file_path)
+# Dropbox direct download link
+file_url = 'https://dl.dropboxusercontent.com/s/eam4iplbrlyaqm7n5fpaw/newupclean3.parquet'
+
+# Load the dataset from Dropbox using caching
+data = load_data(file_url)
 
 # Glossary content with metrics integrated
 glossary = {
