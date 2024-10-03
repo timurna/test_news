@@ -8,33 +8,30 @@ import os
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
 
-# Ensure 'authenticated' and login keys are initialized in session state
+# Initialize data
+data = None
+
+# Ensure 'authenticated' is initialized in session state
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
 def authenticate(username, password):
     try:
-        # Retrieve the credentials from st.secrets (stored in Streamlit Cloud's secret management)
         stored_username = st.secrets["credentials"]["username"]
         stored_password = st.secrets["credentials"]["password"]
     except KeyError as e:
-        # If the credentials are not found, display an error message
         st.error(f"Error: {e}. Credentials not found in Streamlit secrets.")
         return False
-    
-    # Compare provided credentials with the stored ones
     return username == stored_username and password == stored_password
 
 def login():
-    # Capture user input for username and password
     username = st.text_input("Username", key="login_username")
     password = st.text_input("Password", type="password", key="login_password")
-    
     if st.button("Login", key="login_button"):
         if authenticate(username, password):
             st.session_state.authenticated = True
             st.success("Login successful!")
-            st.experimental_rerun()  # Reload the app after successful login
+            st.experimental_rerun()
         else:
             st.error("Invalid username or password")
 
@@ -42,7 +39,7 @@ def login():
 if not st.session_state.authenticated:
     login()
 else:
-    # The user has logged in, continue with the main app
+    # User is authenticated
     st.write("Welcome! You are logged in.")
 
     # Function to apply custom CSS for mobile responsiveness
@@ -50,68 +47,27 @@ else:
         st.markdown(
             """
             <style>
-            @media only screen and (max-width: 600px) {
-                .stApp {
-                    padding: 0 10px;
-                }
-                .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-                    font-size: 1.2em !important;
-                }
-                .headline {
-                    font-size: 1.5em !important;
-                }
-                .stDataFrame th, .stDataFrame td {
-                    font-size: 0.8em !important;
-                }
-                .css-12w0qpk, .css-15tx938, .stSelectbox label, .stTable th, .stTable thead th, .dataframe th {
-                    font-size: 0.8em !important;
-                }
-            }
-            .tooltip {
-                position: relative;
-                display: inline-block;
-                border-bottom: 1px dotted black;
-            }
-            .tooltip .tooltiptext {
-                visibility: hidden;
-                width: 120px;
-                background-color: black;
-                color: #fff;
-                text-align: center;
-                border-radius: 6px;
-                padding: 5px 0;
-                position: absolute;
-                z-index: 1;
-                bottom: 125%;
-                left: 50%;
-                margin-left: -60px;
-                opacity: 0;
-                transition: opacity 0.3s;
-            }
-            .tooltip:hover .tooltiptext {
-                visibility: visible;
-                opacity: 1;
-            }
+            /* Your CSS styles */
             </style>
             """, unsafe_allow_html=True
         )
 
     # Function to download and load the file from Google Drive
-    @st.cache_data  # Use st.cache_data instead of deprecated st.cache
+    @st.cache_data
     def download_and_load_data(url):
         # Define the file path for the downloaded parquet file
         parquet_file = '/tmp/newupclean3.parquet'
-        
+
         # Download the file using requests
         try:
             response = requests.get(url)
-            response.raise_for_status()  # Raises HTTPError for bad responses
+            response.raise_for_status()
             with open(parquet_file, 'wb') as f:
                 f.write(response.content)
         except requests.exceptions.RequestException as e:
             st.error(f"Error downloading file: {e}")
             return None
-        
+
         # Load the parquet file using pandas
         try:
             data = pd.read_parquet(parquet_file)
@@ -131,16 +87,11 @@ else:
     # Check if the data was loaded successfully
     if data is None:
         st.error("Failed to load data")
+        st.stop()
     else:
-        # Apply CSS and display main app content
+        # Proceed with your app
         set_mobile_css()
-
-        # Now you can proceed with the rest of your app logic
         st.write("Data successfully loaded!")
-
-        # Continue with your logic of displaying metrics, tables, etc.
-        # ...
-
 
 if data is None:
     st.error("Failed to load data")
