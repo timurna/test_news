@@ -12,12 +12,6 @@ st.set_page_config(layout="wide")
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
-if 'login_username' not in st.session_state:
-    st.session_state['login_username'] = ""
-
-if 'login_password' not in st.session_state:
-    st.session_state['login_password'] = ""
-
 def authenticate(username, password):
     try:
         # Retrieve the credentials from st.secrets (stored in Streamlit Cloud's secret management)
@@ -39,6 +33,8 @@ def login():
     if st.button("Login", key="login_button"):
         if authenticate(username, password):
             st.session_state.authenticated = True
+            st.success("Login successful!")
+            st.experimental_rerun()  # Reload the app after successful login
         else:
             st.error("Invalid username or password")
 
@@ -138,7 +134,6 @@ else:
         # Glossary content and the rest of your logic for displaying tables, metrics, etc.
         set_mobile_css()
         # Continue with the rest of your app logic...
-
 
 if data is None:
     st.error("Failed to load data")
