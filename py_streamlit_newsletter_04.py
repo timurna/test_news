@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
+import urllib.request
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
+import os
 
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
@@ -59,8 +61,15 @@ def set_mobile_css():
 
 # Decorator to cache data loading
 @st.cache
-def load_data(file_url):
-    data = pd.read_parquet(file_url)
+def download_and_load_data(url):
+    # Download the file from the Dropbox link and save it locally
+    parquet_file = '/tmp/newupclean3.parquet'  # Use /tmp/ directory to store the file temporarily
+    urllib.request.urlretrieve(url, parquet_file)
+    
+    # Load the parquet file using pandas
+    data = pd.read_parquet(parquet_file)
+    
+    # Additional data processing
     data['DOB'] = pd.to_datetime(data['DOB'])
     data['Date'] = pd.to_datetime(data['Date'])
     return data
@@ -69,7 +78,7 @@ def load_data(file_url):
 file_url = 'https://dl.dropboxusercontent.com/s/eam4iplbrlyaqm7n5fpaw/newupclean3.parquet'
 
 # Load the dataset from Dropbox using caching
-data = load_data(file_url)
+data = download_and_load_data(file_url)
 
 # Glossary content with metrics integrated
 glossary = {
