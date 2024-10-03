@@ -140,7 +140,6 @@ else:
         # Continue with your logic of displaying metrics, tables, etc.
         # ...
 
-
 if data is None:
     st.error("Failed to load data")
 else:
