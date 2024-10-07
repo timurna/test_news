@@ -93,28 +93,28 @@ else:
     # Function to download and load the file from Google Drive
     @st.cache_data
     def download_and_load_data(url, data_version):
-    # Define the file path for the downloaded parquet file
-    parquet_file = f'/tmp/newupclean3_{data_version}.parquet'
+        # Define the file path for the downloaded parquet file
+        parquet_file = f'/tmp/newupclean3_{data_version}.parquet'
 
-    # Download the file using requests
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        with open(parquet_file, 'wb') as f:
-            f.write(response.content)
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error downloading file: {e}")
-        return None
+        # Download the file using requests
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            with open(parquet_file, 'wb') as f:
+                f.write(response.content)
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error downloading file: {e}")
+            return None
 
-    # Load the parquet file using pandas
-    try:
-        data = pd.read_parquet(parquet_file)
-        data['DOB'] = pd.to_datetime(data['DOB'])
-        data['Date'] = pd.to_datetime(data['Date'])
-        return data
-    except Exception as e:
-        st.error(f"Error reading parquet file: {e}")
-        return None
+        # Load the parquet file using pandas
+        try:
+            data = pd.read_parquet(parquet_file)
+            data['DOB'] = pd.to_datetime(data['DOB'])
+            data['Date'] = pd.to_datetime(data['Date'])
+            return data
+        except Exception as e:
+            st.error(f"Error reading parquet file: {e}")
+            return None
 
     # In your main code, update the data_version whenever your data changes
     file_url = 'https://drive.google.com/uc?export=download&id=1L209KlTQfjYt9yhTs-seO-FkEa5_68hU'
