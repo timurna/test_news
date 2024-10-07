@@ -93,42 +93,42 @@ else:
 
     # Function to download and load the file from Google Drive
     @st.cache_data
-    def download_and_load_data(file_id, data_version):
-        # Define the file path for the downloaded parquet file
-        parquet_file = f'/tmp/newupclean3_{data_version}.parquet'
+def download_and_load_data(file_url, data_version):
+    # Define the file path for the downloaded parquet file
+    parquet_file = f'/tmp/newupclean3_{data_version}.parquet'
 
-        # Download the file using gdown
-        try:
-            gdown.download(id=file_id, output=parquet_file, quiet=False)
-        except Exception as e:
-            st.error(f"Error downloading file: {e}")
-            return None
+    # Download the file using gdown with fuzzy=True
+    try:
+        gdown.download(url=file_url, output=parquet_file, quiet=False, fuzzy=True)
+    except Exception as e:
+        st.error(f"Error downloading file: {e}")
+        return None
 
-        # Load the parquet file using pandas
-        try:
-            data = pd.read_parquet(parquet_file)
-            data['DOB'] = pd.to_datetime(data['DOB'])
-            data['Date'] = pd.to_datetime(data['Date'])
-            return data
-        except Exception as e:
-            st.error(f"Error reading parquet file: {e}")
-            return None
+    # Load the parquet file using pandas
+    try:
+        data = pd.read_parquet(parquet_file)
+        data['DOB'] = pd.to_datetime(data['DOB'])
+        data['Date'] = pd.to_datetime(data['Date'])
+        return data
+    except Exception as e:
+        st.error(f"Error reading parquet file: {e}")
+        return None
 
-    # Use the file ID from your Google Drive link
-    file_id = '1L209KlTQfjYt9yhTs-seO-FkEa5_68hU'
-    data_version = 'v2'  # Update this to a new value when your data changes
+# Use the file URL from your Google Drive link
+file_url = 'https://drive.google.com/uc?id=1L209KlTQfjYt9yhTs-seO-FkEa5_68hU'
+data_version = 'v2'  # Update this to a new value when your data changes
 
-    # Load the dataset **only** after successful login
-    data = download_and_load_data(file_id, data_version)
+# Load the dataset **only** after successful login
+data = download_and_load_data(file_url, data_version)
 
-    # Check if the data was loaded successfully
-    if data is None:
-        st.error("Failed to load data")
-        st.stop()
-    else:
-        # Proceed with your app
-        set_mobile_css()
-        st.write("Data successfully loaded!")
+# Check if the data was loaded successfully
+if data is None:
+    st.error("Failed to load data")
+    st.stop()
+else:
+    # Proceed with your app
+    set_mobile_css()
+    st.write("Data successfully loaded!")
 
         # Glossary content with metrics integrated
         glossary = {
