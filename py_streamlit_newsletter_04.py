@@ -92,7 +92,7 @@ else:
 
     # Function to download and load the file from Google Drive
     @st.cache_data
-def download_and_load_data(url, data_version):
+    def download_and_load_data(url, data_version):
     # Define the file path for the downloaded parquet file
     parquet_file = f'/tmp/newupclean3_{data_version}.parquet'
 
@@ -116,12 +116,12 @@ def download_and_load_data(url, data_version):
         st.error(f"Error reading parquet file: {e}")
         return None
 
-# In your main code, update the data_version whenever your data changes
-file_url = 'https://drive.google.com/uc?export=download&id=1L209KlTQfjYt9yhTs-seO-FkEa5_68hU'
-data_version = 'v2'  # Update this to a new value when your data changes
+    # In your main code, update the data_version whenever your data changes
+    file_url = 'https://drive.google.com/uc?export=download&id=1L209KlTQfjYt9yhTs-seO-FkEa5_68hU'
+    data_version = 'v2'  # Update this to a new value when your data changes
 
-# Load the dataset **only** after successful login
-data = download_and_load_data(file_url, data_version)
+    # Load the dataset **only** after successful login
+    data = download_and_load_data(file_url, data_version)
 
     # Check if the data was loaded successfully
     if data is None:
