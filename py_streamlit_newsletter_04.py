@@ -46,53 +46,46 @@ def login():
 
     st.button("Login", on_click=authenticate_and_login)
 
-# Ensure proper authentication
-if not st.session_state.authenticated:
-    login()
-else:
-    # User is authenticated
-    st.write("Welcome! You are logged in.")
+# Function to apply custom CSS for mobile responsiveness
+def set_mobile_css():
+    st.markdown(
+        """
+        <style>
+        /* Your CSS styles */
+        /* Example CSS */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
 
-    # Function to apply custom CSS for mobile responsiveness
-    def set_mobile_css():
-        st.markdown(
-            """
-            <style>
-            /* Your CSS styles */
-            /* Example CSS */
-            .tooltip {
-                position: relative;
-                display: inline-block;
-                cursor: pointer;
-            }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%; /* Position above the text */
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
 
-            .tooltip .tooltiptext {
-                visibility: hidden;
-                width: 200px;
-                background-color: #555;
-                color: #fff;
-                text-align: center;
-                border-radius: 6px;
-                padding: 5px;
-                position: absolute;
-                z-index: 1;
-                bottom: 125%; /* Position above the text */
-                left: 50%;
-                margin-left: -100px;
-                opacity: 0;
-                transition: opacity 0.3s;
-            }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        </style>
+        """, unsafe_allow_html=True
+    )
 
-            .tooltip:hover .tooltiptext {
-                visibility: visible;
-                opacity: 1;
-            }
-            </style>
-            """, unsafe_allow_html=True
-        )
-
-    # Function to download and load the file from Google Drive
-    @st.cache_data
+# Function to download and load the file from Google Drive
+@st.cache_data
 def download_and_load_data(file_url, data_version):
     # Define the file path for the downloaded parquet file
     parquet_file = f'/tmp/newupclean3_{data_version}.parquet'
@@ -114,21 +107,26 @@ def download_and_load_data(file_url, data_version):
         st.error(f"Error reading parquet file: {e}")
         return None
 
-# Use the file URL from your Google Drive link
-file_url = 'https://drive.google.com/uc?id=1L209KlTQfjYt9yhTs-seO-FkEa5_68hU'
-data_version = 'v2'  # Update this to a new value when your data changes
-
-# Load the dataset **only** after successful login
-data = download_and_load_data(file_url, data_version)
-
-# Check if the data was loaded successfully
-if data is None:
-    st.error("Failed to load data")
-    st.stop()
+# Ensure proper authentication
+if not st.session_state.authenticated:
+    login()
 else:
-    # Proceed with your app
-    set_mobile_css()
-    st.write("Data successfully loaded!")
+    # User is authenticated
+    st.write("Welcome! You are logged in.")
+
+    # Load the dataset **only** after successful login
+    file_url = 'https://drive.google.com/uc?id=1L209KlTQfjYt9yhTs-seO-FkEa5_68hU'
+    data_version = 'v2'  # Update this to a new value when your data changes
+    data = download_and_load_data(file_url, data_version)
+
+    # Check if the data was loaded successfully
+    if data is None:
+        st.error("Failed to load data")
+        st.stop()
+    else:
+        # Proceed with your app
+        set_mobile_css()
+        st.write("Data successfully loaded!")
 
         # Glossary content with metrics integrated
         glossary = {
