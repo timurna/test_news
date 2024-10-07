@@ -10,3 +10,4 @@ toolz
 altair
 pyarrow
 fastparquet
+gdown
