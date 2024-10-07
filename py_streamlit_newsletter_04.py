@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
-import requests
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
-import os
 import gdown
 
 # Set the page configuration to wide mode
@@ -397,10 +395,11 @@ else:
                 position_group_options = list(position_groups.keys())
                 selected_position_group = st.selectbox("Select Position Group", position_group_options, key="select_position_group")
 
-        # Filter the data by the selected position group and up to the selected matchday
+        # **Updated Filtering:**
+        # Filter the data by the selected position group and the selected matchday
         league_and_position_data = data[
             (data['League'] == selected_league) &
-            (data['Date'] <= selected_date) &
+            (data['Week'] == selected_week) &
             (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
         ]
 
@@ -415,7 +414,7 @@ else:
                             st.write(f"Metric {metric} not found in the data")
                             continue
 
-                        # Get the latest data for each player up to the selected date
+                        # Get the data for each player in the selected matchday
                         latest_data = league_and_position_data.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
 
                         # Round the Age column to ensure no decimals
