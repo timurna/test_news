@@ -86,7 +86,7 @@ def set_mobile_css():
 @st.cache_data
 def download_and_load_data(file_url, data_version):
     # Define the file path for the downloaded parquet file
-    parquet_file = f'/tmp/newupclean3_{data_version}.parquet'
+    parquet_file = f'/tmp/newupclean5_{data_version}.parquet'
 
     # Download the file using gdown with fuzzy=True
     try:
