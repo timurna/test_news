@@ -139,7 +139,7 @@ else:
             'ZM': ['Central Midfielder'],
             'ZOM': ['Centre Attacking Midfielder'],
             'ZMZOM': ['Central Midfielder', 'Centre Attacking Midfielder'],
-            'FS': ['Left Midfielder', 'Right Midfielder', 'Left Attacking Midfielder', 'Right Attacking Midfielder', 'Left Winger', 'Right Winger'],
+            'FS': ['Left Midfielder', 'Right Midfielder', 'Left Attacking Midfielder', 'Right Attacking Midfielder'],
             'ST': ['Left Winger', 'Right Winger', 'Second Striker', 'Centre Forward']
         }
 
@@ -185,12 +185,20 @@ else:
                 filtered_weeks = week_summary[week_summary['League'] == selected_league].sort_values(by='min').drop_duplicates(subset=['Week'])
 
                 matchday_options = filtered_weeks['Matchday'].tolist()
-                selected_matchday = st.selectbox("Select Matchday", matchday_options, key="select_matchday", on_change=reset_run)
 
-                selected_week = filtered_weeks[filtered_weeks['Matchday'] == selected_matchday]['Week'].values[0]
+                # Replace selectbox with multiselect
+                selected_matchdays = st.multiselect("Select Matchdays", matchday_options, key="select_matchdays", on_change=reset_run)
 
-                # Get the date of the selected matchday
-                selected_date = filtered_weeks[filtered_weeks['Matchday'] == selected_matchday]['max'].values[0]
+                # If no matchdays are selected, show a warning and stop
+                if not selected_matchdays:
+                    st.warning("Please select at least one matchday.")
+                    st.stop()
+
+                selected_weeks = filtered_weeks[filtered_weeks['Matchday'].isin(selected_matchdays)]['Week'].unique().tolist()
+
+                # Get the last date among the selected matchdays
+                selected_dates = filtered_weeks[filtered_weeks['Matchday'].isin(selected_matchdays)]['max']
+                last_selected_date = max(selected_dates)
 
             with col3:
                 position_group_options = list(position_groups.keys())
@@ -325,7 +333,12 @@ else:
                 'Shot', 'SOG', 'Shot conversion', 'OnTarget%'
             ]
 
-            for metric in physical_metrics + offensive_metrics + defensive_metrics + goal_threat_metrics:
+            # Combine all metrics for processing
+            all_metrics = list(set(
+                physical_metrics + offensive_metrics + defensive_metrics + goal_threat_metrics + percentage_metrics
+            ))
+
+            for metric in all_metrics:
                 if metric in data.columns and metric not in percentage_metrics:  # Exclude percentage metrics already processed
                     data[metric] = pd.to_numeric(data[metric].astype(str).str.replace(',', '.'), errors='coerce')
 
@@ -384,14 +397,10 @@ else:
 
             # **Add the Overall Rating by combining all metrics**
             # Create a list of all metrics used in the ratings
-            all_metrics = list(set(
-                physical_offensive_metrics + physical_defensive_metrics +
-                offensive_metrics + defensive_metrics + goal_threat_metrics
-            ))
+            rating_metrics = ['Physical Offensive Rating', 'Physical Defensive Rating',
+                              'Offensive Rating', 'Defensive Rating', 'Goal Threat Rating']
 
-            data['Overall Rating'] = scaler.fit_transform(
-                quantile_transformer.fit_transform(data[all_metrics].fillna(0))
-            ).mean(axis=1)
+            data['Overall Rating'] = data[rating_metrics].mean(axis=1)
 
             # **Calculate Cumulative Averages for Metrics**
 
@@ -399,9 +408,7 @@ else:
             data = data.sort_values(['League', 'playerFullName', 'Date'])
 
             # Create a list of metrics for which we want cumulative averages
-            metrics_for_cum_avg = ['Overall Rating', 'Offensive Rating', 'Defensive Rating',
-                                   'Physical Offensive Rating', 'Physical Defensive Rating', 'Goal Threat Rating'] + \
-                                  physical_offensive_metrics + physical_defensive_metrics + offensive_metrics + defensive_metrics
+            metrics_for_cum_avg = rating_metrics + physical_offensive_metrics + physical_defensive_metrics + offensive_metrics + defensive_metrics
 
             # Remove duplicates
             metrics_for_cum_avg = list(set(metrics_for_cum_avg))
@@ -411,16 +418,34 @@ else:
                 data[f'{metric}_cum_avg'] = data.groupby(['League', 'playerFullName'])[metric].expanding().mean().reset_index(level=[0, 1], drop=True)
 
             # **Updated Filtering:**
-            # Filter the data by the selected position group and the selected matchday
+            # Filter the data by the selected position group and the selected matchdays
             league_and_position_data = data[
                 (data['League'] == selected_league) &
-                (data['Week'] == selected_week) &
+                (data['Week'].isin(selected_weeks)) &
                 (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
             ]
 
+            # Define metrics that are counts and should be summed
+            count_metrics = [
+                'Goal', 'Ast', 'KeyPass', 'Shot', 'SOG', 'TakeOn', 'Success1v1', 'Blocks', 'Int', 'Clrnce',
+                'Tckl', 'AdjTckl', 'TcklAtt', 'AdjInt', 'TcklA3', 'ThrghBalls', 'TouchOpBox', 'Touches',
+                'Take on into the Box', '2ndAst', 'PsAtt', 'PsCmp', 'PsIntoA3rd', 'PsRec', 'ProgCarry', 'ProgPass',
+                'Shot conversion', 'Shot/Goal', 'HI Count', 'HI Count OTIP', 'Medium Acceleration Count',
+                'Medium Acceleration Count OTIP', 'Medium Deceleration Count', 'Medium Deceleration Count OTIP',
+                'High Acceleration Count', 'High Acceleration Count OTIP', 'High Deceleration Count',
+                'High Deceleration Count OTIP', 'HSR Count', 'HSR Count OTIP', 'Sprint Count', 'Sprint Count OTIP'
+            ]
+
+            # Define metrics that should be averaged
+            average_metrics = [
+                'Pass%', 'OnTarget%', 'TcklMade%', 'ExpG', 'ExpGExPn', 'ExpG', 'ExpGExPn', 'xA', 'xG +/-', 'xA +/-', 'xGOT',
+                'MinPerGoal', 'MinPerChnc', 'PSV-99', 'Distance', 'Distance OTIP', 'M/min', 'M/min OTIP', 'HI Distance',
+                'HI Distance OTIP', 'HSR Distance', 'HSR Distance OTIP', 'Sprint Distance', 'Sprint Distance OTIP'
+            ] + rating_metrics
+
             # Use a container to make the expandable sections span the full width
             with st.container():
-                tooltip_headers = {metric: glossary.get(metric, '') for metric in ['Overall Rating', 'Offensive Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating', 'Goal Threat Rating'] + physical_metrics + offensive_metrics + defensive_metrics}
+                tooltip_headers = {metric: glossary.get(metric, '') for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics}
 
                 def display_metric_tables(metrics_list, title):
                     with st.expander(title, expanded=False):  # Setting expanded=False to keep it closed by default
@@ -429,11 +454,24 @@ else:
                                 st.write(f"Metric {metric} not found in the data")
                                 continue
 
-                            # First, display the table filtered by position group
                             metric_data = league_and_position_data
 
-                            # Get the data for each player in the selected matchday
-                            latest_data = metric_data.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
+                            # Determine aggregation function
+                            if metric in count_metrics:
+                                agg_func = 'sum'
+                            elif metric in average_metrics or metric in percentage_metrics:
+                                agg_func = 'mean'
+                            else:
+                                agg_func = 'mean'  # Default to mean if unsure
+
+                            # Aggregate the data over the selected matchdays
+                            latest_data = metric_data.groupby('playerFullName').agg({
+                                'Age': 'last',
+                                'newestTeam': 'last',
+                                'Position_x': 'last',
+                                metric: agg_func,
+                                f'{metric}_cum_avg': 'last'
+                            }).reset_index()
 
                             # Round the Age column to ensure no decimals
                             latest_data['Age'] = latest_data['Age'].round(0).astype(int)
@@ -479,14 +517,20 @@ else:
 
                             # If the metric is 'PSV-99', also display the overall top 10
                             if metric == 'PSV-99':
-                                # For 'PSV-99', use data filtered only by league and week (matchday), ignore position group
+                                # For 'PSV-99', use data filtered only by league and selected weeks (matchdays), ignore position group
                                 metric_data_overall = data[
                                     (data['League'] == selected_league) &
-                                    (data['Week'] == selected_week)
+                                    (data['Week'].isin(selected_weeks))
                                 ]
 
-                                # Get the data for each player in the selected matchday
-                                latest_data_overall = metric_data_overall.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
+                                # Aggregate the data over the selected matchdays
+                                latest_data_overall = metric_data_overall.groupby('playerFullName').agg({
+                                    'Age': 'last',
+                                    'newestTeam': 'last',
+                                    'Position_x': 'last',
+                                    metric: 'mean',
+                                    f'{metric}_cum_avg': 'last'
+                                }).reset_index()
 
                                 # Round the Age column to ensure no decimals
                                 latest_data_overall['Age'] = latest_data_overall['Age'].round(0).astype(int)
