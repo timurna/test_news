@@ -126,6 +126,9 @@ else:
         set_mobile_css()
         st.write("Data successfully loaded!")
 
+        # Uncomment the following line to print the columns in your data for debugging
+        # st.write("Data columns:", data.columns.tolist())
+
         # **Initialize necessary variables and minimal processing for filters**
 
         # Define position groups with potential overlaps
@@ -143,8 +146,22 @@ else:
             'ST': ['Left Winger', 'Right Winger', 'Second Striker', 'Centre Forward']
         }
 
+        # Adjust column names to match your data
+        # Uncomment the following line to print the columns in your data
+        # st.write("Data columns:", data.columns.tolist())
+
+        # Based on the data columns, set the correct position column name
+        # For example, if 'Position_x' exists, use it; else, check for 'Position'
+        if 'Position_x' in data.columns:
+            position_column = 'Position_x'
+        elif 'Position' in data.columns:
+            position_column = 'Position'
+        else:
+            st.error("Position column not found in the data.")
+            st.stop()
+
         # Assign positions to multiple groups
-        data['Position Groups'] = data['Position'].apply(
+        data['Position Groups'] = data[position_column].apply(
             lambda pos: [group for group, positions in position_groups.items() if pos in positions])
 
         # Initialize session state for 'run_clicked'
@@ -470,8 +487,8 @@ else:
                             # Include 'Team' and 'Position' if they exist
                             if 'Team' in metric_data.columns:
                                 agg_dict['Team'] = 'last'
-                            if 'Position' in metric_data.columns:
-                                agg_dict['Position'] = 'last'
+                            if position_column in metric_data.columns:
+                                agg_dict[position_column] = 'last'
 
                             # Perform the aggregation
                             try:
@@ -484,7 +501,9 @@ else:
                             latest_data['Age'] = latest_data['Age'].round(0).astype(int)
 
                             # Prepare the data
-                            top10 = latest_data[['playerFullName', 'Age', 'Team', 'Position', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+                            columns_to_select = ['playerFullName', 'Age', 'Team', position_column, metric, f'{metric}_cum_avg']
+                            available_columns = [col for col in columns_to_select if col in latest_data.columns]
+                            top10 = latest_data[available_columns].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
                             if top10.empty:
                                 st.header(f"Top 10 Players in {metric}")
@@ -499,7 +518,7 @@ else:
                                 top10 = top10.reset_index()
 
                                 st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
-                                top10.rename(columns={'playerFullName': 'Player'}, inplace=True)
+                                top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
                                 # Format the metric value with cumulative average
                                 top10[metric] = top10.apply(
@@ -534,8 +553,8 @@ else:
                                 agg_dict_overall = {'Age': 'last', metric: 'mean', f'{metric}_cum_avg': 'last'}
                                 if 'Team' in metric_data_overall.columns:
                                     agg_dict_overall['Team'] = 'last'
-                                if 'Position' in metric_data_overall.columns:
-                                    agg_dict_overall['Position'] = 'last'
+                                if position_column in metric_data_overall.columns:
+                                    agg_dict_overall[position_column] = 'last'
 
                                 latest_data_overall = metric_data_overall.groupby('playerFullName').agg(agg_dict_overall).reset_index()
 
@@ -543,7 +562,9 @@ else:
                                 latest_data_overall['Age'] = latest_data_overall['Age'].round(0).astype(int)
 
                                 # Prepare the data
-                                top10_overall = latest_data_overall[['playerFullName', 'Age', 'Team', 'Position', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+                                columns_to_select_overall = ['playerFullName', 'Age', 'Team', position_column, metric, f'{metric}_cum_avg']
+                                available_columns_overall = [col for col in columns_to_select_overall if col in latest_data_overall.columns]
+                                top10_overall = latest_data_overall[available_columns_overall].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
                                 if top10_overall.empty:
                                     st.header(f"Top 10 Players in {metric} (Overall)")
@@ -558,7 +579,7 @@ else:
                                     top10_overall = top10_overall.reset_index()
 
                                     st.markdown(f"<h2>{metric} (Overall)</h2>", unsafe_allow_html=True)
-                                    top10_overall.rename(columns={'playerFullName': 'Player'}, inplace=True)
+                                    top10_overall.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
                                     # Format the metric value with cumulative average
                                     top10_overall[metric] = top10_overall.apply(
