@@ -356,6 +356,16 @@ else:
 
         set_mobile_css()
 
+        # Initialize session state for 'run_clicked'
+        if 'run_clicked' not in st.session_state:
+            st.session_state['run_clicked'] = False
+
+        def reset_run():
+            st.session_state['run_clicked'] = False
+
+        def run_callback():
+            st.session_state['run_clicked'] = True
+
         # Display the logo at the top
         st.image('logo.png', use_column_width=False, width=800)
 
@@ -365,7 +375,7 @@ else:
 
             with col1:
                 leagues = sorted(data['League'].unique())  # Sort leagues alphabetically
-                selected_league = st.selectbox("Select League", leagues, key="select_league")
+                selected_league = st.selectbox("Select League", leagues, key="select_league", on_change=reset_run)
 
             with col2:
                 league_data = data[data['League'] == selected_league]
@@ -384,7 +394,7 @@ else:
                 filtered_weeks = week_summary[week_summary['League'] == selected_league].sort_values(by='min').drop_duplicates(subset=['Week'])
 
                 matchday_options = filtered_weeks['Matchday'].tolist()
-                selected_matchday = st.selectbox("Select Matchday", matchday_options, key="select_matchday")
+                selected_matchday = st.selectbox("Select Matchday", matchday_options, key="select_matchday", on_change=reset_run)
 
                 selected_week = filtered_weeks[filtered_weeks['Matchday'] == selected_matchday]['Week'].values[0]
 
@@ -393,118 +403,126 @@ else:
 
             with col3:
                 position_group_options = list(position_groups.keys())
-                selected_position_group = st.selectbox("Select Position Group", position_group_options, key="select_position_group")
+                selected_position_group = st.selectbox("Select Position Group", position_group_options, key="select_position_group", on_change=reset_run)
 
-        # **Updated Filtering:**
-        # Filter the data by the selected position group and the selected matchday
-        league_and_position_data = data[
-            (data['League'] == selected_league) &
-            (data['Week'] == selected_week) &
-            (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
-        ]
+        # Add the "Run" button
+        st.button("Run", on_click=run_callback)
 
-        # Use a container to make the expandable sections span the full width
-        with st.container():
-            tooltip_headers = {metric: glossary.get(metric, '') for metric in ['Overall Score', 'Offensive Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score', 'Goal Threat Score'] + physical_metrics + offensive_metrics + defensive_metrics}
+        # Process data only if "Run" has been clicked
+        if st.session_state['run_clicked']:
+            # **Updated Filtering:**
+            # Filter the data by the selected position group and the selected matchday
+            league_and_position_data = data[
+                (data['League'] == selected_league) &
+                (data['Week'] == selected_week) &
+                (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
+            ]
 
-            def display_metric_tables(metrics_list, title):
-                with st.expander(title, expanded=False):  # Setting expanded=False to keep it closed by default
-                    for metric in metrics_list:
-                        if metric not in league_and_position_data.columns:
-                            st.write(f"Metric {metric} not found in the data")
-                            continue
+            # Use a container to make the expandable sections span the full width
+            with st.container():
+                tooltip_headers = {metric: glossary.get(metric, '') for metric in ['Overall Score', 'Offensive Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score', 'Goal Threat Score'] + physical_metrics + offensive_metrics + defensive_metrics}
 
-                        # Get the data for each player in the selected matchday
-                        latest_data = league_and_position_data.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
+                def display_metric_tables(metrics_list, title):
+                    with st.expander(title, expanded=False):  # Setting expanded=False to keep it closed by default
+                        for metric in metrics_list:
+                            if metric not in league_and_position_data.columns:
+                                st.write(f"Metric {metric} not found in the data")
+                                continue
 
-                        # Round the Age column to ensure no decimals
-                        latest_data['Age'] = latest_data['Age'].round(0).astype(int)
+                            # Get the data for each player in the selected matchday
+                            latest_data = league_and_position_data.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
 
-                        # Prepare the data
-                        top10 = latest_data[['playerFullName', 'Age', 'newestTeam', 'Position_x', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+                            # Round the Age column to ensure no decimals
+                            latest_data['Age'] = latest_data['Age'].round(0).astype(int)
 
-                        if top10.empty:
-                            st.header(f"Top 10 Players in {metric}")
-                            st.write("No data available")
-                        else:
-                            # Reset the index to create a rank column starting from 1
-                            top10.reset_index(drop=True, inplace=True)
-                            top10.index += 1
-                            top10.index.name = 'Rank'
+                            # Prepare the data
+                            top10 = latest_data[['playerFullName', 'Age', 'newestTeam', 'Position_x', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
-                            # Ensure the Rank column is part of the DataFrame before styling
-                            top10 = top10.reset_index()
+                            if top10.empty:
+                                st.header(f"Top 10 Players in {metric}")
+                                st.write("No data available")
+                            else:
+                                # Reset the index to create a rank column starting from 1
+                                top10.reset_index(drop=True, inplace=True)
+                                top10.index += 1
+                                top10.index.name = 'Rank'
 
-                            st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
-                            top10.rename(columns={'playerFullName': 'Player', 'newestTeam': 'Team', 'Position_x': 'Position'}, inplace=True)
+                                # Ensure the Rank column is part of the DataFrame before styling
+                                top10 = top10.reset_index()
 
-                            # Format the metric value with cumulative average
-                            top10[metric] = top10.apply(
-                                lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
-                                axis=1
-                            )
+                                st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
+                                top10.rename(columns={'playerFullName': 'Player', 'newestTeam': 'Team', 'Position_x': 'Position'}, inplace=True)
 
-                            # Remove the cumulative average column from the DataFrame as it's now included in the metric column
-                            top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
+                                # Format the metric value with cumulative average
+                                top10[metric] = top10.apply(
+                                    lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
+                                    axis=1
+                                )
 
-                            def color_row(row):
-                                return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
+                                # Remove the cumulative average column from the DataFrame as it's now included in the metric column
+                                top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
 
-                            top10_styled = top10.style.apply(color_row, axis=1)
-                            top10_html = top10_styled.to_html()
+                                def color_row(row):
+                                    return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
 
-                            for header, tooltip in tooltip_headers.items():
-                                if tooltip:
-                                    top10_html = top10_html.replace(f'>{header}<', f'><span class="tooltip">{header}<span class="tooltiptext">{tooltip}</span></span><')
+                                top10_styled = top10.style.apply(color_row, axis=1)
+                                top10_html = top10_styled.to_html()
 
-                            st.write(top10_html, unsafe_allow_html=True)
+                                for header, tooltip in tooltip_headers.items():
+                                    if tooltip:
+                                        top10_html = top10_html.replace(f'>{header}<', f'><span class="tooltip">{header}<span class="tooltiptext">{tooltip}</span></span><')
 
-            display_metric_tables(['Overall Score', 'Offensive Score', 'Goal Threat Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score'], "Score Metrics")
-            display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
-            display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
-            display_metric_tables(offensive_metrics, "Offensive Metrics")
-            display_metric_tables(defensive_metrics, "Defensive Metrics")
+                                st.write(top10_html, unsafe_allow_html=True)
 
-        # Glossary section - Render only after authentication inside an expander
-        with st.expander("Glossary"):
-            sections = {
-                "Score Metrics": [
-                    'Overall Score', 'Defensive Score', 'Goal Threat Score', 'Offensive Score',
-                    'Physical Defensive Score', 'Physical Offensive Score'
-                ],
-                "Offensive Metrics": [
-                    '2ndAst', 'Ast', 'ExpG', 'ExpGExPn', 'Goal', 'GoalExPn', 'KeyPass',
-                    'MinPerChnc', 'MinPerGoal', 'PsAtt', 'PsCmp', 'Pass%', 'PsIntoA3rd',
-                    'PsRec', 'ProgCarry', 'ProgPass', 'Shot', 'OnTarget%', 'Shot conversion',
-                    'Shot/Goal', 'SOG', 'Success1v1', 'Take on into the Box',
-                    'TakeOn', 'ThrghBalls', 'TouchOpBox', 'Touches', 'xA',
-                    'xA +/-', 'xG +/-', 'xGOT'
-                ],
-                "Defensive Metrics": [
-                    'AdjInt', 'AdjTckl', 'Blocks', 'Clrnce', 'Int',
-                    'TcklAtt', 'Tckl', 'TcklMade%', 'TcklA3'
-                ],
-                "Physical Offensive Metrics": [
-                    'PSV-99', 'Distance', 'M/min', 'HSR Distance', 'HSR Count',
-                    'Sprint Distance', 'Sprint Count', 'HI Distance',
-                    'HI Count', 'Medium Acceleration Count',
-                    'High Acceleration Count', 'Medium Deceleration Count',
-                    'High Deceleration Count'
-                ],
-                "Physical Defensive Metrics": [
-                    'Distance OTIP', 'M/min OTIP', 'HSR Distance OTIP',
-                    'HSR Count OTIP', 'Sprint Distance OTIP', 'Sprint Count OTIP',
-                    'HI Distance OTIP', 'HI Count OTIP', 'Medium Acceleration Count OTIP',
-                    'High Acceleration Count OTIP', 'Medium Deceleration Count OTIP',
-                    'High Deceleration Count OTIP'
-                ]
-            }
+                display_metric_tables(['Overall Score', 'Offensive Score', 'Goal Threat Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score'], "Score Metrics")
+                display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
+                display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
+                display_metric_tables(offensive_metrics, "Offensive Metrics")
+                display_metric_tables(defensive_metrics, "Defensive Metrics")
 
-            # Iterate over each section
-            for section, metrics in sections.items():
-                st.markdown(f"<h3 style='font-size:15px; color:#333; font-weight:bold;'>{section}</h3>", unsafe_allow_html=True)
-                # Iterate over the metrics for the current section
-                for metric in metrics:
-                    # Display the metric and its explanation in italic
-                    explanation = glossary.get(metric, "")
-                    st.markdown(f"{metric}: *{explanation}*")
+            # Glossary section - Render only after authentication inside an expander
+            with st.expander("Glossary"):
+                sections = {
+                    "Score Metrics": [
+                        'Overall Score', 'Defensive Score', 'Goal Threat Score', 'Offensive Score',
+                        'Physical Defensive Score', 'Physical Offensive Score'
+                    ],
+                    "Offensive Metrics": [
+                        '2ndAst', 'Ast', 'ExpG', 'ExpGExPn', 'Goal', 'GoalExPn', 'KeyPass',
+                        'MinPerChnc', 'MinPerGoal', 'PsAtt', 'PsCmp', 'Pass%', 'PsIntoA3rd',
+                        'PsRec', 'ProgCarry', 'ProgPass', 'Shot', 'OnTarget%', 'Shot conversion',
+                        'Shot/Goal', 'SOG', 'Success1v1', 'Take on into the Box',
+                        'TakeOn', 'ThrghBalls', 'TouchOpBox', 'Touches', 'xA',
+                        'xA +/-', 'xG +/-', 'xGOT'
+                    ],
+                    "Defensive Metrics": [
+                        'AdjInt', 'AdjTckl', 'Blocks', 'Clrnce', 'Int',
+                        'TcklAtt', 'Tckl', 'TcklMade%', 'TcklA3'
+                    ],
+                    "Physical Offensive Metrics": [
+                        'PSV-99', 'Distance', 'M/min', 'HSR Distance', 'HSR Count',
+                        'Sprint Distance', 'Sprint Count', 'HI Distance',
+                        'HI Count', 'Medium Acceleration Count',
+                        'High Acceleration Count', 'Medium Deceleration Count',
+                        'High Deceleration Count'
+                    ],
+                    "Physical Defensive Metrics": [
+                        'Distance OTIP', 'M/min OTIP', 'HSR Distance OTIP',
+                        'HSR Count OTIP', 'Sprint Distance OTIP', 'Sprint Count OTIP',
+                        'HI Distance OTIP', 'HI Count OTIP', 'Medium Acceleration Count OTIP',
+                        'High Acceleration Count OTIP', 'Medium Deceleration Count OTIP',
+                        'High Deceleration Count OTIP'
+                    ]
+                }
+
+                # Iterate over each section
+                for section, metrics in sections.items():
+                    st.markdown(f"<h3 style='font-size:15px; color:#333; font-weight:bold;'>{section}</h3>", unsafe_allow_html=True)
+                    # Iterate over the metrics for the current section
+                    for metric in metrics:
+                        # Display the metric and its explanation in italic
+                        explanation = glossary.get(metric, "")
+                        st.markdown(f"{metric}: *{explanation}*")
+
+        else:
+            st.write("Please set your filters and click 'Run' to display the data.")
