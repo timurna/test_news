@@ -425,12 +425,15 @@ else:
                 def display_metric_tables(metrics_list, title):
                     with st.expander(title, expanded=False):  # Setting expanded=False to keep it closed by default
                         for metric in metrics_list:
-                            if metric not in league_and_position_data.columns:
+                            if metric not in data.columns:
                                 st.write(f"Metric {metric} not found in the data")
                                 continue
 
+                            # First, display the table filtered by position group
+                            metric_data = league_and_position_data
+
                             # Get the data for each player in the selected matchday
-                            latest_data = league_and_position_data.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
+                            latest_data = metric_data.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
 
                             # Round the Age column to ensure no decimals
                             latest_data['Age'] = latest_data['Age'].round(0).astype(int)
@@ -439,7 +442,7 @@ else:
                             top10 = latest_data[['playerFullName', 'Age', 'newestTeam', 'Position_x', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
                             if top10.empty:
-                                st.header(f"Top 10 Players in {metric}")
+                                st.header(f"Top 10 Players in {metric} (Filtered by Position Group)")
                                 st.write("No data available")
                             else:
                                 # Reset the index to create a rank column starting from 1
@@ -450,7 +453,7 @@ else:
                                 # Ensure the Rank column is part of the DataFrame before styling
                                 top10 = top10.reset_index()
 
-                                st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
+                                st.markdown(f"<h2>{metric} (Filtered by Position Group)</h2>", unsafe_allow_html=True)
                                 top10.rename(columns={'playerFullName': 'Player', 'newestTeam': 'Team', 'Position_x': 'Position'}, inplace=True)
 
                                 # Format the metric value with cumulative average
@@ -474,6 +477,60 @@ else:
 
                                 st.write(top10_html, unsafe_allow_html=True)
 
+                            # If the metric is 'PSV-99', also display the overall top 10
+                            if metric == 'PSV-99':
+                                # For 'PSV-99', use data filtered only by league and week (matchday), ignore position group
+                                metric_data_overall = data[
+                                    (data['League'] == selected_league) &
+                                    (data['Week'] == selected_week)
+                                ]
+
+                                # Get the data for each player in the selected matchday
+                                latest_data_overall = metric_data_overall.sort_values(['playerFullName', 'Date']).groupby('playerFullName').last().reset_index()
+
+                                # Round the Age column to ensure no decimals
+                                latest_data_overall['Age'] = latest_data_overall['Age'].round(0).astype(int)
+
+                                # Prepare the data
+                                top10_overall = latest_data_overall[['playerFullName', 'Age', 'newestTeam', 'Position_x', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+
+                                if top10_overall.empty:
+                                    st.header(f"Top 10 Players in {metric} (Overall)")
+                                    st.write("No data available")
+                                else:
+                                    # Reset the index to create a rank column starting from 1
+                                    top10_overall.reset_index(drop=True, inplace=True)
+                                    top10_overall.index += 1
+                                    top10_overall.index.name = 'Rank'
+
+                                    # Ensure the Rank column is part of the DataFrame before styling
+                                    top10_overall = top10_overall.reset_index()
+
+                                    st.markdown(f"<h2>{metric} (Overall)</h2>", unsafe_allow_html=True)
+                                    top10_overall.rename(columns={'playerFullName': 'Player', 'newestTeam': 'Team', 'Position_x': 'Position'}, inplace=True)
+
+                                    # Format the metric value with cumulative average
+                                    top10_overall[metric] = top10_overall.apply(
+                                        lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
+                                        axis=1
+                                    )
+
+                                    # Remove the cumulative average column from the DataFrame as it's now included in the metric column
+                                    top10_overall.drop(columns=[f'{metric}_cum_avg'], inplace=True)
+
+                                    def color_row(row):
+                                        return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
+
+                                    top10_overall_styled = top10_overall.style.apply(color_row, axis=1)
+                                    top10_overall_html = top10_overall_styled.to_html()
+
+                                    for header, tooltip in tooltip_headers.items():
+                                        if tooltip:
+                                            top10_overall_html = top10_overall_html.replace(f'>{header}<', f'><span class="tooltip">{header}<span class="tooltiptext">{tooltip}</span></span><')
+
+                                    st.write(top10_overall_html, unsafe_allow_html=True)
+
+                # Call the display_metric_tables function as before
                 display_metric_tables(['Overall Score', 'Offensive Score', 'Goal Threat Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score'], "Score Metrics")
                 display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
                 display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
