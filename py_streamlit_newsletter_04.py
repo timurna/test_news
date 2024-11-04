@@ -144,7 +144,7 @@ else:
         }
 
         # Assign positions to multiple groups
-        data['Position Groups'] = data['Position_x'].apply(
+        data['Position Groups'] = data['Position'].apply(
             lambda pos: [group for group, positions in position_groups.items() if pos in positions])
 
         # Initialize session state for 'run_clicked'
@@ -438,7 +438,7 @@ else:
 
             # Define metrics that should be averaged
             average_metrics = [
-                'Pass%', 'OnTarget%', 'TcklMade%', 'ExpG', 'ExpGExPn', 'ExpG', 'ExpGExPn', 'xA', 'xG +/-', 'xA +/-', 'xGOT',
+                'Pass%', 'OnTarget%', 'TcklMade%', 'ExpG', 'ExpGExPn', 'xA', 'xG +/-', 'xA +/-', 'xGOT',
                 'MinPerGoal', 'MinPerChnc', 'PSV-99', 'Distance', 'Distance OTIP', 'M/min', 'M/min OTIP', 'HI Distance',
                 'HI Distance OTIP', 'HSR Distance', 'HSR Distance OTIP', 'Sprint Distance', 'Sprint Distance OTIP'
             ] + rating_metrics
@@ -464,20 +464,27 @@ else:
                             else:
                                 agg_func = 'mean'  # Default to mean if unsure
 
-                            # Aggregate the data over the selected matchdays
-                            latest_data = metric_data.groupby('playerFullName').agg({
-                                'Age': 'last',
-                                'newestTeam': 'last',
-                                'Position_x': 'last',
-                                metric: agg_func,
-                                f'{metric}_cum_avg': 'last'
-                            }).reset_index()
+                            # Define the aggregation dictionary
+                            agg_dict = {'Age': 'last', metric: agg_func, f'{metric}_cum_avg': 'last'}
+
+                            # Include 'Team' and 'Position' if they exist
+                            if 'Team' in metric_data.columns:
+                                agg_dict['Team'] = 'last'
+                            if 'Position' in metric_data.columns:
+                                agg_dict['Position'] = 'last'
+
+                            # Perform the aggregation
+                            try:
+                                latest_data = metric_data.groupby('playerFullName').agg(agg_dict).reset_index()
+                            except KeyError as e:
+                                st.error(f"Column not found during aggregation: {e}")
+                                continue
 
                             # Round the Age column to ensure no decimals
                             latest_data['Age'] = latest_data['Age'].round(0).astype(int)
 
                             # Prepare the data
-                            top10 = latest_data[['playerFullName', 'Age', 'newestTeam', 'Position_x', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+                            top10 = latest_data[['playerFullName', 'Age', 'Team', 'Position', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
                             if top10.empty:
                                 st.header(f"Top 10 Players in {metric}")
@@ -492,7 +499,7 @@ else:
                                 top10 = top10.reset_index()
 
                                 st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
-                                top10.rename(columns={'playerFullName': 'Player', 'newestTeam': 'Team', 'Position_x': 'Position'}, inplace=True)
+                                top10.rename(columns={'playerFullName': 'Player'}, inplace=True)
 
                                 # Format the metric value with cumulative average
                                 top10[metric] = top10.apply(
@@ -524,19 +531,19 @@ else:
                                 ]
 
                                 # Aggregate the data over the selected matchdays
-                                latest_data_overall = metric_data_overall.groupby('playerFullName').agg({
-                                    'Age': 'last',
-                                    'newestTeam': 'last',
-                                    'Position_x': 'last',
-                                    metric: 'mean',
-                                    f'{metric}_cum_avg': 'last'
-                                }).reset_index()
+                                agg_dict_overall = {'Age': 'last', metric: 'mean', f'{metric}_cum_avg': 'last'}
+                                if 'Team' in metric_data_overall.columns:
+                                    agg_dict_overall['Team'] = 'last'
+                                if 'Position' in metric_data_overall.columns:
+                                    agg_dict_overall['Position'] = 'last'
+
+                                latest_data_overall = metric_data_overall.groupby('playerFullName').agg(agg_dict_overall).reset_index()
 
                                 # Round the Age column to ensure no decimals
                                 latest_data_overall['Age'] = latest_data_overall['Age'].round(0).astype(int)
 
                                 # Prepare the data
-                                top10_overall = latest_data_overall[['playerFullName', 'Age', 'newestTeam', 'Position_x', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+                                top10_overall = latest_data_overall[['playerFullName', 'Age', 'Team', 'Position', metric, f'{metric}_cum_avg']].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
                                 if top10_overall.empty:
                                     st.header(f"Top 10 Players in {metric} (Overall)")
@@ -551,7 +558,7 @@ else:
                                     top10_overall = top10_overall.reset_index()
 
                                     st.markdown(f"<h2>{metric} (Overall)</h2>", unsafe_allow_html=True)
-                                    top10_overall.rename(columns={'playerFullName': 'Player', 'newestTeam': 'Team', 'Position_x': 'Position'}, inplace=True)
+                                    top10_overall.rename(columns={'playerFullName': 'Player'}, inplace=True)
 
                                     # Format the metric value with cumulative average
                                     top10_overall[metric] = top10_overall.apply(
