@@ -205,13 +205,13 @@ else:
 
             # Glossary content with metrics integrated
             glossary = {
-                'Score Metrics': '',
-                'Overall Score': 'Player\'s overall performance across all metrics.',
-                'Defensive Score': 'Player\'s overall defensive performance. Metrics: TcklMade%, TcklAtt, Tckl, AdjTckl, TcklA3, Blocks, Int, AdjInt, Clrnce',
-                'Goal Threat Score': 'Player\'s threat to score goals. Metrics: Goal, Shot/Goal, MinPerGoal, ExpG, xGOT, xG +/- , Shot, SOG, Shot conversion, OnTarget%',
-                'Offensive Score': 'Player\'s overall offensive performance. Metrics: 2ndAst, Ast, ExpG, ExpGExPn, Goal, GoalExPn, KeyPass, MinPerChnc, MinPerGoal, PsAtt, PsCmp, Pass%, PsIntoA3rd, PsRec, ProgCarry, ProgPass, Shot, Shot conversion, Shot/Goal, SOG, OnTarget%, Success1v1, Take on into the Box, TakeOn, ThrghBalls, TouchOpBox, Touches, xA, xA +/- , xG +/- , xGOT',
-                'Physical Offensive Score': 'Player\'s physical contributions to offensive play. Metrics: PSV-99, Distance, M/min, HSR Distance, HSR Count, Sprint Distance, Sprint Count, HI Distance, HI Count, Medium Acceleration Count, High Acceleration Count, Medium Deceleration Count, High Deceleration Count',
-                'Physical Defensive Score': 'Player\'s physical contributions to defensive play. Metrics: Distance OTIP, M/min OTIP, HSR Distance OTIP, HSR Count OTIP, Sprint Distance OTIP, Sprint Count OTIP, HI Distance OTIP, HI Count OTIP, Medium Acceleration Count OTIP, High Acceleration Count OTIP, Medium Deceleration Count OTIP, High Deceleration Count OTIP',
+                'Rating Metrics': '',
+                'Overall Rating': 'Player\'s overall performance across all metrics.',
+                'Defensive Rating': 'Player\'s overall defensive performance. Metrics: TcklMade%, TcklAtt, Tckl, AdjTckl, TcklA3, Blocks, Int, AdjInt, Clrnce',
+                'Goal Threat Rating': 'Player\'s threat to score goals. Metrics: Goal, Shot/Goal, MinPerGoal, ExpG, xGOT, xG +/- , Shot, SOG, Shot conversion, OnTarget%',
+                'Offensive Rating': 'Player\'s overall offensive performance. Metrics: 2ndAst, Ast, ExpG, ExpGExPn, Goal, GoalExPn, KeyPass, MinPerChnc, MinPerGoal, PsAtt, PsCmp, Pass%, PsIntoA3rd, PsRec, ProgCarry, ProgPass, Shot, Shot conversion, Shot/Goal, SOG, OnTarget%, Success1v1, Take on into the Box, TakeOn, ThrghBalls, TouchOpBox, Touches, xA, xA +/- , xG +/- , xGOT',
+                'Physical Offensive Rating': 'Player\'s physical contributions to offensive play. Metrics: PSV-99, Distance, M/min, HSR Distance, HSR Count, Sprint Distance, Sprint Count, HI Distance, HI Count, Medium Acceleration Count, High Acceleration Count, Medium Deceleration Count, High Deceleration Count',
+                'Physical Defensive Rating': 'Player\'s physical contributions to defensive play. Metrics: Distance OTIP, M/min OTIP, HSR Distance OTIP, HSR Count OTIP, Sprint Distance OTIP, Sprint Count OTIP, HI Distance OTIP, HI Count OTIP, Medium Acceleration Count OTIP, High Acceleration Count OTIP, Medium Deceleration Count OTIP, High Deceleration Count OTIP',
                 'Offensive Metrics': '',
                 '2ndAst': 'The pass that assists the assist leading to a goal.',
                 'Ast': 'Assists.',
@@ -361,35 +361,35 @@ else:
                 'High Deceleration Count OTIP'
             ]
 
-            # Calculate the scores
-            data['Physical Offensive Score'] = scaler.fit_transform(
+            # Calculate the ratings
+            data['Physical Offensive Rating'] = scaler.fit_transform(
                 quantile_transformer.fit_transform(data[physical_offensive_metrics].fillna(0))
             ).mean(axis=1)
 
-            data['Physical Defensive Score'] = scaler.fit_transform(
+            data['Physical Defensive Rating'] = scaler.fit_transform(
                 quantile_transformer.fit_transform(data[physical_defensive_metrics].fillna(0))
             ).mean(axis=1)
 
-            data['Offensive Score'] = scaler.fit_transform(
+            data['Offensive Rating'] = scaler.fit_transform(
                 quantile_transformer.fit_transform(data[offensive_metrics].fillna(0))
             ).mean(axis=1)
 
-            data['Defensive Score'] = scaler.fit_transform(
+            data['Defensive Rating'] = scaler.fit_transform(
                 quantile_transformer.fit_transform(data[defensive_metrics].fillna(0))
             ).mean(axis=1)
 
-            data['Goal Threat Score'] = scaler.fit_transform(
+            data['Goal Threat Rating'] = scaler.fit_transform(
                 quantile_transformer.fit_transform(data[goal_threat_metrics].fillna(0))
             ).mean(axis=1)
 
-            # **Add the Overall Score by combining all metrics**
-            # Create a list of all metrics used in the scores
+            # **Add the Overall Rating by combining all metrics**
+            # Create a list of all metrics used in the ratings
             all_metrics = list(set(
                 physical_offensive_metrics + physical_defensive_metrics +
                 offensive_metrics + defensive_metrics + goal_threat_metrics
             ))
 
-            data['Overall Score'] = scaler.fit_transform(
+            data['Overall Rating'] = scaler.fit_transform(
                 quantile_transformer.fit_transform(data[all_metrics].fillna(0))
             ).mean(axis=1)
 
@@ -399,8 +399,8 @@ else:
             data = data.sort_values(['League', 'playerFullName', 'Date'])
 
             # Create a list of metrics for which we want cumulative averages
-            metrics_for_cum_avg = ['Overall Score', 'Offensive Score', 'Defensive Score',
-                                   'Physical Offensive Score', 'Physical Defensive Score', 'Goal Threat Score'] + \
+            metrics_for_cum_avg = ['Overall Rating', 'Offensive Rating', 'Defensive Rating',
+                                   'Physical Offensive Rating', 'Physical Defensive Rating', 'Goal Threat Rating'] + \
                                   physical_offensive_metrics + physical_defensive_metrics + offensive_metrics + defensive_metrics
 
             # Remove duplicates
@@ -420,7 +420,7 @@ else:
 
             # Use a container to make the expandable sections span the full width
             with st.container():
-                tooltip_headers = {metric: glossary.get(metric, '') for metric in ['Overall Score', 'Offensive Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score', 'Goal Threat Score'] + physical_metrics + offensive_metrics + defensive_metrics}
+                tooltip_headers = {metric: glossary.get(metric, '') for metric in ['Overall Rating', 'Offensive Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating', 'Goal Threat Rating'] + physical_metrics + offensive_metrics + defensive_metrics}
 
                 def display_metric_tables(metrics_list, title):
                     with st.expander(title, expanded=False):  # Setting expanded=False to keep it closed by default
@@ -530,8 +530,8 @@ else:
 
                                     st.write(top10_overall_html, unsafe_allow_html=True)
 
-                # Call the display_metric_tables function as before
-                display_metric_tables(['Overall Score', 'Offensive Score', 'Goal Threat Score', 'Defensive Score', 'Physical Offensive Score', 'Physical Defensive Score'], "Score Metrics")
+                # Call the display_metric_tables function with updated metric names
+                display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Rating Metrics")
                 display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
                 display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
                 display_metric_tables(offensive_metrics, "Offensive Metrics")
@@ -540,9 +540,9 @@ else:
             # Glossary section - Render only after authentication inside an expander
             with st.expander("Glossary"):
                 sections = {
-                    "Score Metrics": [
-                        'Overall Score', 'Defensive Score', 'Goal Threat Score', 'Offensive Score',
-                        'Physical Defensive Score', 'Physical Offensive Score'
+                    "Rating Metrics": [
+                        'Overall Rating', 'Defensive Rating', 'Goal Threat Rating', 'Offensive Rating',
+                        'Physical Defensive Rating', 'Physical Offensive Rating'
                     ],
                     "Offensive Metrics": [
                         '2ndAst', 'Ast', 'ExpG', 'ExpGExPn', 'Goal', 'GoalExPn', 'KeyPass',
@@ -556,20 +556,8 @@ else:
                         'AdjInt', 'AdjTckl', 'Blocks', 'Clrnce', 'Int',
                         'TcklAtt', 'Tckl', 'TcklMade%', 'TcklA3'
                     ],
-                    "Physical Offensive Metrics": [
-                        'PSV-99', 'Distance', 'M/min', 'HSR Distance', 'HSR Count',
-                        'Sprint Distance', 'Sprint Count', 'HI Distance',
-                        'HI Count', 'Medium Acceleration Count',
-                        'High Acceleration Count', 'Medium Deceleration Count',
-                        'High Deceleration Count'
-                    ],
-                    "Physical Defensive Metrics": [
-                        'Distance OTIP', 'M/min OTIP', 'HSR Distance OTIP',
-                        'HSR Count OTIP', 'Sprint Distance OTIP', 'Sprint Count OTIP',
-                        'HI Distance OTIP', 'HI Count OTIP', 'Medium Acceleration Count OTIP',
-                        'High Acceleration Count OTIP', 'Medium Deceleration Count OTIP',
-                        'High Deceleration Count OTIP'
-                    ]
+                    "Physical Offensive Metrics": physical_offensive_metrics,
+                    "Physical Defensive Metrics": physical_defensive_metrics
                 }
 
                 # Iterate over each section
