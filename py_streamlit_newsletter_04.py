@@ -414,10 +414,11 @@ else:
 
             # **Add the Overall Rating by combining all metrics**
             # Create a list of all metrics used in the ratings
-            rating_metrics = ['Physical Offensive Rating', 'Physical Defensive Rating',
+            rating_metrics = ['Overall Rating', 'Physical Offensive Rating', 'Physical Defensive Rating',
                               'Offensive Rating', 'Defensive Rating', 'Goal Threat Rating']
 
-            data['Overall Rating'] = data[rating_metrics].mean(axis=1)
+            data['Overall Rating'] = data[['Physical Offensive Rating', 'Physical Defensive Rating',
+                                           'Offensive Rating', 'Defensive Rating', 'Goal Threat Rating']].mean(axis=1)
 
             # **Calculate Cumulative Averages for Metrics**
 
@@ -485,8 +486,20 @@ else:
                             agg_dict = {'Age': 'last', metric: agg_func, f'{metric}_cum_avg': 'last'}
 
                             # Include 'Team' and 'Position' if they exist
+                            # Identify the team column
                             if 'Team' in metric_data.columns:
                                 agg_dict['Team'] = 'last'
+                                team_column = 'Team'
+                            elif 'Team_x' in metric_data.columns:
+                                agg_dict['Team_x'] = 'last'
+                                team_column = 'Team_x'
+                            elif 'Squad' in metric_data.columns:
+                                agg_dict['Squad'] = 'last'
+                                team_column = 'Squad'
+                            else:
+                                st.warning("Team column not found in data.")
+                                team_column = None
+
                             if position_column in metric_data.columns:
                                 agg_dict[position_column] = 'last'
 
@@ -501,7 +514,7 @@ else:
                             latest_data['Age'] = latest_data['Age'].round(0).astype(int)
 
                             # Prepare the data
-                            columns_to_select = ['playerFullName', 'Age', 'Team', position_column, metric, f'{metric}_cum_avg']
+                            columns_to_select = ['playerFullName', 'Age', team_column, position_column, metric, f'{metric}_cum_avg']
                             available_columns = [col for col in columns_to_select if col in latest_data.columns]
                             top10 = latest_data[available_columns].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
@@ -519,6 +532,9 @@ else:
 
                                 st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
                                 top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
+
+                                if team_column:
+                                    top10.rename(columns={team_column: 'Team'}, inplace=True)
 
                                 # Format the metric value with cumulative average
                                 top10[metric] = top10.apply(
@@ -553,6 +569,17 @@ else:
                                 agg_dict_overall = {'Age': 'last', metric: 'mean', f'{metric}_cum_avg': 'last'}
                                 if 'Team' in metric_data_overall.columns:
                                     agg_dict_overall['Team'] = 'last'
+                                    team_column_overall = 'Team'
+                                elif 'Team_x' in metric_data_overall.columns:
+                                    agg_dict_overall['Team_x'] = 'last'
+                                    team_column_overall = 'Team_x'
+                                elif 'Squad' in metric_data_overall.columns:
+                                    agg_dict_overall['Squad'] = 'last'
+                                    team_column_overall = 'Squad'
+                                else:
+                                    st.warning("Team column not found in data.")
+                                    team_column_overall = None
+
                                 if position_column in metric_data_overall.columns:
                                     agg_dict_overall[position_column] = 'last'
 
@@ -562,7 +589,7 @@ else:
                                 latest_data_overall['Age'] = latest_data_overall['Age'].round(0).astype(int)
 
                                 # Prepare the data
-                                columns_to_select_overall = ['playerFullName', 'Age', 'Team', position_column, metric, f'{metric}_cum_avg']
+                                columns_to_select_overall = ['playerFullName', 'Age', team_column_overall, position_column, metric, f'{metric}_cum_avg']
                                 available_columns_overall = [col for col in columns_to_select_overall if col in latest_data_overall.columns]
                                 top10_overall = latest_data_overall[available_columns_overall].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
@@ -580,6 +607,9 @@ else:
 
                                     st.markdown(f"<h2>{metric} (Overall)</h2>", unsafe_allow_html=True)
                                     top10_overall.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
+
+                                    if team_column_overall:
+                                        top10_overall.rename(columns={team_column_overall: 'Team'}, inplace=True)
 
                                     # Format the metric value with cumulative average
                                     top10_overall[metric] = top10_overall.apply(
