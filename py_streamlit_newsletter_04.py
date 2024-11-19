@@ -467,42 +467,42 @@ else:
             # Determine the number of selected matchdays
             num_selected_matchdays = len(selected_matchdays)
 
+            # Tooltip headers
+            tooltip_headers = {metric: glossary.get(metric, '') for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics}
+
             # Use a container to make the expandable sections span the full width
             with st.container():
-                # Tooltip headers
-                tooltip_headers = {metric: glossary.get(metric, '') for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics}
+                # Define the 'display_metric_tables' function with corrections
+                def display_metric_tables(metrics_list, title):
+                    with st.expander(title, expanded=False):
+                        for metric in metrics_list:
+                            if metric not in data.columns:
+                                st.write(f"Metric {metric} not found in the data")
+                                continue
 
-            # Define the 'display_metric_tables' function with corrections
-            def display_metric_tables(metrics_list, title):
-                with st.expander(title, expanded=False):
-                    for metric in metrics_list:
-                        if metric not in data.columns:
-                            st.write(f"Metric {metric} not found in the data")
-                            continue
-            
-                        metric_data = league_and_position_data
-            
-                        # Determine aggregation function
-                        if metric in count_metrics:
-                            agg_func = 'sum'
-                        elif metric in average_metrics or metric in percentage_metrics:
-                            agg_func = 'mean'
-                        elif metric in max_metrics:
-                            agg_func = 'max'
-                        else:
-                            agg_func = 'mean'  # Default to mean if unsure
-            
-                        # Identify the team column
-                        team_columns = ['Team', 'Team_x', 'Squad', 'team', 'squad']
-                        team_column = next((col for col in team_columns if col in metric_data.columns), None)
-                        if team_column is None:
-                            st.warning("Team column not found in data.")
-            
-                        # Identify the position column
-                        position_columns = ['Position', 'Position_x', 'position', 'position_x']
-                        position_column_in_metric_data = next((col for col in position_columns if col in metric_data.columns), None)
-                        if position_column_in_metric_data is None:
-                            st.warning("Position column not found in metric_data.")
+                            metric_data = league_and_position_data
+
+                            # Determine aggregation function
+                            if metric in count_metrics:
+                                agg_func = 'sum'
+                            elif metric in average_metrics or metric in percentage_metrics:
+                                agg_func = 'mean'
+                            elif metric in max_metrics:
+                                agg_func = 'max'
+                            else:
+                                agg_func = 'mean'  # Default to mean if unsure
+
+                            # Identify the team column
+                            team_columns = ['Team', 'Team_x', 'Squad', 'team', 'squad']
+                            team_column = next((col for col in team_columns if col in metric_data.columns), None)
+                            if team_column is None:
+                                st.warning("Team column not found in data.")
+
+                            # Identify the position column
+                            position_columns = ['Position', 'Position_x', 'position', 'position_x']
+                            position_column_in_metric_data = next((col for col in position_columns if col in metric_data.columns), None)
+                            if position_column_in_metric_data is None:
+                                st.warning("Position column not found in metric_data.")
 
                             if metric == 'PSV-99':
                                 # Handle PSV-99 differently
@@ -583,7 +583,7 @@ else:
                                         .dataframe thead th:first-child {display:none;}
                                     </style>
                                     """
-                
+
                                     # Add tooltips
                                     for header, tooltip in tooltip_headers.items():
                                         if tooltip:
@@ -621,6 +621,7 @@ else:
                                     st.write("No data available")
                                 else:
                                     # Create the Rank column starting from 1
+                                    top10.reset_index(drop=True, inplace=True)
                                     top10.insert(0, 'Rank', range(1, len(top10) + 1))
 
                                     # Rename columns
@@ -653,7 +654,7 @@ else:
                                     # Convert to HTML without the index
                                     top10_html = top10_styled.to_html(index=False)
 
-                                     # **Add CSS to hide the index column**
+                                    # **Add CSS to hide the index column**
                                     top10_html = top10_html.replace('<table ', '<table style="border-collapse: collapse; width: 100%;" ')
                                     top10_html += """
                                     <style>
@@ -663,7 +664,8 @@ else:
                                         .dataframe thead th:first-child {display:none;}
                                     </style>
                                     """
-                                    
+
+                                    # Add tooltips
                                     for header, tooltip in tooltip_headers.items():
                                         if tooltip:
                                             top10_html = top10_html.replace(
