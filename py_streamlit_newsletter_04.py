@@ -505,8 +505,103 @@ else:
                                 st.warning("Position column not found in metric_data.")
 
                             if metric == 'PSV-99':
-                                # [PSV-99 handling code remains unchanged]
-                                pass  # Use the existing PSV-99 code
+                                # Handle PSV-99 differently
+                                if num_selected_matchdays == 1:
+                                    # For single matchday
+                                    # Get data for the selected matchday(s)
+                                    metric_data_selected = league_and_position_data
+                                    # Get max PSV-99 for each player in the selected matchday
+                                    max_psv99 = metric_data_selected.groupby('playerFullName')['PSV-99'].max()
+                                    # Get average PSV-99 over all data for each player
+                                    avg_psv99_all = data.groupby('playerFullName')['PSV-99'].mean()
+
+                                    # Combine into a DataFrame
+                                    psv99_df = pd.DataFrame({
+                                        'Max PSV-99': max_psv99,
+                                        'Avg PSV-99': avg_psv99_all
+                                    })
+                                else:
+                                    # For multiple matchdays
+                                    # Get data for selected matchdays
+                                    metric_data_selected = league_and_position_data
+                                    # Get max and average PSV-99 over selected matchdays for each player
+                                    grouped = metric_data_selected.groupby('playerFullName')
+                                    max_psv99 = grouped['PSV-99'].max()
+                                    avg_psv99 = grouped['PSV-99'].mean()
+
+                                    # Combine into a DataFrame
+                                    psv99_df = pd.DataFrame({
+                                        'Max PSV-99': max_psv99,
+                                        'Avg PSV-99': avg_psv99
+                                    })
+
+                                # Merge additional info
+                                # Age from the latest data
+                                age = data.groupby('playerFullName')['Age'].last()
+                                psv99_df['Age'] = age
+
+                                # Team from the latest data
+                                if team_column:
+                                    team = data.groupby('playerFullName')[team_column].last()
+                                    psv99_df['Team'] = team
+                                else:
+                                    st.warning('Team column not found in data.')
+
+                                # Position from the latest data
+                                if position_column_in_metric_data:
+                                    position = data.groupby('playerFullName')[position_column_in_metric_data].last()
+                                    psv99_df['Position'] = position
+                                else:
+                                    st.warning('Position column not found in data.')
+
+                                # Remove players with NaN in 'Max PSV-99' (i.e., players not present in selected matchdays)
+                                psv99_df = psv99_df.dropna(subset=['Max PSV-99'])
+
+                                # Round Age to integers
+                                psv99_df['Age'] = psv99_df['Age'].round(0).astype(int)
+
+                                # Prepare data for display
+                                # Sort by 'Max PSV-99' descending
+                                top10 = psv99_df.sort_values(by='Max PSV-99', ascending=False).head(10)
+
+                                if top10.empty:
+                                    st.header(f"Top 10 Players in {metric}")
+                                    st.write("No data available")
+                                else:
+                                    # Reset index to create rank
+                                    top10.reset_index(drop=False, inplace=True)
+                                    top10.index += 1
+                                    top10.index.name = 'Rank'
+
+                                    # Rename columns
+                                    top10.rename(columns={'playerFullName': 'Player'}, inplace=True)
+                                    if position_column_in_metric_data and position_column_in_metric_data in top10.columns:
+                                        top10.rename(columns={position_column_in_metric_data: 'Position'}, inplace=True)
+                                    if team_column and team_column in top10.columns:
+                                        top10.rename(columns={team_column: 'Team'}, inplace=True)
+
+                                    # Format the PSV-99 values
+                                    top10[metric] = top10.apply(
+                                        lambda row: f"{row['Max PSV-99']:.2f} ({row['Avg PSV-99']:.2f})",
+                                        axis=1
+                                    )
+
+                                    # Drop unnecessary columns
+                                    available_columns = ['Rank', 'Player', 'Age', 'Team', 'Position', metric]
+                                    available_columns = [col for col in available_columns if col in top10.columns]
+                                    top10 = top10[available_columns]
+
+                                    def color_row(row):
+                                        return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
+
+                                    top10_styled = top10.style.apply(color_row, axis=1)
+                                    top10_html = top10_styled.to_html()
+
+                                    for header, tooltip in tooltip_headers.items():
+                                        if tooltip:
+                                            top10_html = top10_html.replace(f'>{header}<', f'><span class="tooltip">{header}<span class="tooltiptext">{tooltip}</span></span><')
+
+                                    st.write(top10_html, unsafe_allow_html=True)
                             else:
                                 # Existing code for other metrics
                                 # Define the aggregation dictionary
