@@ -474,35 +474,35 @@ else:
 
                 # Define the 'display_metric_tables' function with corrections
                 def display_metric_tables(metrics_list, title):
-                    with st.expander(title, expanded=False):  # Setting expanded=False to keep it closed by default
-                        for metric in metrics_list:
-                            if metric not in data.columns:
-                                st.write(f"Metric {metric} not found in the data")
-                                continue
-
-                            metric_data = league_and_position_data
-
-                            # Determine aggregation function
-                            if metric in count_metrics:
-                                agg_func = 'sum'
-                            elif metric in average_metrics or metric in percentage_metrics:
-                                agg_func = 'mean'
-                            elif metric in max_metrics:
-                                agg_func = 'max'
-                            else:
-                                agg_func = 'mean'  # Default to mean if unsure
-
-                            # Identify the team column
-                            team_columns = ['Team', 'Team_x', 'Squad', 'team', 'squad']
-                            team_column = next((col for col in team_columns if col in metric_data.columns), None)
-                            if team_column is None:
-                                st.warning("Team column not found in data.")
-
-                            # Identify the position column
-                            position_columns = ['Position', 'Position_x', 'position', 'position_x']
-                            position_column_in_metric_data = next((col for col in position_columns if col in metric_data.columns), None)
-                            if position_column_in_metric_data is None:
-                                st.warning("Position column not found in metric_data.")
+                with st.expander(title, expanded=False):
+                    for metric in metrics_list:
+                        if metric not in data.columns:
+                            st.write(f"Metric {metric} not found in the data")
+                            continue
+            
+                        metric_data = league_and_position_data
+            
+                        # Determine aggregation function
+                        if metric in count_metrics:
+                            agg_func = 'sum'
+                        elif metric in average_metrics or metric in percentage_metrics:
+                            agg_func = 'mean'
+                        elif metric in max_metrics:
+                            agg_func = 'max'
+                        else:
+                            agg_func = 'mean'  # Default to mean if unsure
+            
+                        # Identify the team column
+                        team_columns = ['Team', 'Team_x', 'Squad', 'team', 'squad']
+                        team_column = next((col for col in team_columns if col in metric_data.columns), None)
+                        if team_column is None:
+                            st.warning("Team column not found in data.")
+            
+                        # Identify the position column
+                        position_columns = ['Position', 'Position_x', 'position', 'position_x']
+                        position_column_in_metric_data = next((col for col in position_columns if col in metric_data.columns), None)
+                        if position_column_in_metric_data is None:
+                            st.warning("Position column not found in metric_data.")
 
                             if metric == 'PSV-99':
                                 # Handle PSV-99 differently
@@ -573,6 +573,18 @@ else:
                                     # Convert to HTML without the index
                                     top10_html = top10_styled.to_html(index=False)
 
+                                    # **Add CSS to hide the index column**
+                                    top10_html = top10_html.replace('<table ', '<table style="border-collapse: collapse; width: 100%;" ')
+                                    top10_html += """
+                                    <style>
+                                        tbody th {display:none;}
+                                        .dataframe tbody tr th:only-of-type {visibility: hidden;}
+                                        .dataframe tbody tr th {vertical-align: top;}
+                                        .dataframe thead th:first-child {display:none;}
+                                    </style>
+                                    """
+                
+                                    # Add tooltips
                                     for header, tooltip in tooltip_headers.items():
                                         if tooltip:
                                             top10_html = top10_html.replace(
@@ -641,6 +653,17 @@ else:
                                     # Convert to HTML without the index
                                     top10_html = top10_styled.to_html(index=False)
 
+                                     # **Add CSS to hide the index column**
+                                    top10_html = top10_html.replace('<table ', '<table style="border-collapse: collapse; width: 100%;" ')
+                                    top10_html += """
+                                    <style>
+                                        tbody th {display:none;}
+                                        .dataframe tbody tr th:only-of-type {visibility: hidden;}
+                                        .dataframe tbody tr th {vertical-align: top;}
+                                        .dataframe thead th:first-child {display:none;}
+                                    </style>
+                                    """
+                                    
                                     for header, tooltip in tooltip_headers.items():
                                         if tooltip:
                                             top10_html = top10_html.replace(
