@@ -550,7 +550,7 @@ else:
                                     st.write("No data available")
                                 else:
                                     # Create the Rank column starting from 1
-                                    top10.reset_index(drop=False, inplace=True)
+                                    top10.reset_index(drop=True, inplace=True)
                                     top10.insert(0, 'Rank', range(1, len(top10) + 1))
                                     top10.rename(columns={'playerFullName': 'Player'}, inplace=True)
                                     if position_column_in_metric_data and position_column_in_metric_data in top10.columns:
