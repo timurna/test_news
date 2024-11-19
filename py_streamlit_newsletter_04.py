@@ -568,10 +568,9 @@ else:
                                     st.header(f"Top 10 Players in {metric}")
                                     st.write("No data available")
                                 else:
-                                    # Reset index to create rank
+                                    # Create the Rank column starting from 1
                                     top10.reset_index(drop=False, inplace=True)
-                                    top10.index += 1
-                                    top10.index.name = 'Rank'
+                                    top10.insert(0, 'Rank', range(1, len(top10) + 1))
 
                                     # Rename columns
                                     top10.rename(columns={'playerFullName': 'Player'}, inplace=True)
@@ -594,7 +593,8 @@ else:
                                     def color_row(row):
                                         return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
 
-                                    top10_styled = top10.style.apply(color_row, axis=1)
+                                    # Hide the index when styling
+                                    top10_styled = top10.style.hide_index().apply(color_row, axis=1)
                                     top10_html = top10_styled.to_html()
 
                                     for header, tooltip in tooltip_headers.items():
@@ -631,13 +631,8 @@ else:
                                     st.header(f"Top 10 Players in {metric}")
                                     st.write("No data available")
                                 else:
-                                    # Reset the index to create a rank column starting from 1
-                                    top10.reset_index(drop=True, inplace=True)
-                                    top10.index += 1
-                                    top10.index.name = 'Rank'
-
-                                    # Ensure the Rank column is part of the DataFrame before styling
-                                    top10 = top10.reset_index()
+                                    # Create the Rank column starting from 1
+                                    top10.insert(0, 'Rank', range(1, len(top10) + 1))
 
                                     # Rename columns
                                     top10.rename(columns={'playerFullName': 'Player'}, inplace=True)
@@ -663,7 +658,8 @@ else:
                                     def color_row(row):
                                         return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
 
-                                    top10_styled = top10.style.apply(color_row, axis=1)
+                                    # Hide the index when styling
+                                    top10_styled = top10.style.hide_index().apply(color_row, axis=1)
                                     top10_html = top10_styled.to_html()
 
                                     for header, tooltip in tooltip_headers.items():
