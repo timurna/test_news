@@ -474,6 +474,7 @@ else:
 
                 # Define the 'display_metric_tables' function with corrections
                 def display_metric_tables(metrics_list, title):
+                    
     with st.expander(title, expanded=False):
         for metric in metrics_list:
             if metric not in data.columns:
