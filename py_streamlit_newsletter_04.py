@@ -544,17 +544,21 @@ else:
                                 # Merge additional info
                                 # Age from the latest data
                                 age = data.groupby('playerFullName')['Age'].last()
-                                # Team from the latest data
-                                team = data.groupby('playerFullName')[team_column].last() if team_column else None
-                                # Position from the latest data
-                                position = data.groupby('playerFullName')[position_column_in_metric_data].last() if position_column_in_metric_data else None
-
-                                # Combine all into psv99_df
                                 psv99_df['Age'] = age
+
+                                # Team from the latest data
                                 if team_column:
+                                    team = data.groupby('playerFullName')[team_column].last()
                                     psv99_df['Team'] = team
+                                else:
+                                    st.warning('Team column not found in data.')
+
+                                # Position from the latest data
                                 if position_column_in_metric_data:
+                                    position = data.groupby('playerFullName')[position_column_in_metric_data].last()
                                     psv99_df['Position'] = position
+                                else:
+                                    st.warning('Position column not found in data.')
 
                                 # Remove players with NaN in 'Max PSV-99' (i.e., players not present in selected matchdays)
                                 psv99_df = psv99_df.dropna(subset=['Max PSV-99'])
@@ -577,9 +581,9 @@ else:
 
                                     # Rename columns
                                     top10.rename(columns={'playerFullName': 'Player'}, inplace=True)
-                                    if position_column_in_metric_data:
+                                    if 'Position' in top10.columns:
                                         top10.rename(columns={position_column_in_metric_data: 'Position'}, inplace=True)
-                                    if team_column:
+                                    if 'Team' in top10.columns:
                                         top10.rename(columns={team_column: 'Team'}, inplace=True)
 
                                     # Format the PSV-99 values
@@ -589,7 +593,9 @@ else:
                                     )
 
                                     # Drop unnecessary columns
-                                    top10 = top10[['Rank', 'Player', 'Age', 'Team', 'Position', metric]]
+                                    available_columns = ['Rank', 'Player', 'Age', 'Team', 'Position', metric]
+                                    available_columns = [col for col in available_columns if col in top10.columns]
+                                    top10 = top10[available_columns]
 
                                     def color_row(row):
                                         return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
@@ -640,9 +646,11 @@ else:
                                     top10 = top10.reset_index()
 
                                     st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
-                                    top10.rename(columns={'playerFullName': 'Player', position_column_in_metric_data: 'Position'}, inplace=True)
+                                    top10.rename(columns={'playerFullName': 'Player'}, inplace=True)
 
-                                    if team_column:
+                                    if 'Position' in top10.columns:
+                                        top10.rename(columns={position_column_in_metric_data: 'Position'}, inplace=True)
+                                    if 'Team' in top10.columns:
                                         top10.rename(columns={team_column: 'Team'}, inplace=True)
 
                                     # Format the metric value with cumulative average
@@ -653,6 +661,11 @@ else:
 
                                     # Remove the cumulative average column from the DataFrame as it's now included in the metric column
                                     top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
+
+                                    # Drop any columns that may not exist
+                                    available_columns = ['Rank', 'Player', 'Age', 'Team', 'Position', metric]
+                                    available_columns = [col for col in available_columns if col in top10.columns]
+                                    top10 = top10[available_columns]
 
                                     def color_row(row):
                                         return ['background-color: #d4edda' if row['Age'] < 24 else '' for _ in row]
