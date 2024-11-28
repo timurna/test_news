@@ -4,6 +4,7 @@ from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
 import gdown
 import urllib.parse
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
@@ -17,11 +18,7 @@ if 'authenticated' not in st.session_state:
 
 # Initialize 'selected_player' in session state
 if 'selected_player' not in st.session_state:
-    params = st.experimental_get_query_params()
-    if 'selected_player' in params:
-        st.session_state['selected_player'] = urllib.parse.unquote(params['selected_player'][0])
-    else:
-        st.session_state['selected_player'] = None
+    st.session_state['selected_player'] = None
 
 def authenticate(username, password):
     try:
@@ -472,123 +469,183 @@ else:
                 'HI Distance OTIP', 'HSR Distance', 'HSR Distance OTIP', 'Sprint Distance', 'Sprint Distance OTIP'
             ] + rating_metrics
 
-            # Add a player selection dropdown
-player_names = league_and_position_data['playerFullName'].unique()
-selected_player_name = st.selectbox("Select a Player to Highlight", options=["None"] + list(player_names))
+            # Use a container to make the expandable sections span the full width
+            with st.container():
+                tooltip_headers = {metric: glossary.get(metric, '') for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics}
 
-# Update the session state
-if selected_player_name != "None":
-    st.session_state['selected_player'] = selected_player_name
-else:
-    st.session_state['selected_player'] = None
+                from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 
-# In your display_metric_tables function, adjust the code as follows:
+                def display_metric_tables(metrics_list, title):
+                    with st.expander(title, expanded=False):
+                        for metric in metrics_list:
+                            if metric not in data.columns:
+                                st.write(f"Metric {metric} not found in the data")
+                                continue
 
-def display_metric_tables(metrics_list, title):
-    with st.expander(title, expanded=False):
-        for metric in metrics_list:
-            if metric not in data.columns:
-                st.write(f"Metric {metric} not found in the data")
-                continue
+                            metric_data = league_and_position_data
 
-            metric_data = league_and_position_data
+                            # Determine aggregation function
+                            if metric in count_metrics:
+                                agg_func = 'sum'
+                            elif metric in average_metrics or metric in percentage_metrics:
+                                agg_func = 'mean'
+                            else:
+                                agg_func = 'mean'
 
-            # Determine aggregation function
-            if metric in count_metrics:
-                agg_func = 'sum'
-            elif metric in average_metrics or metric in percentage_metrics:
-                agg_func = 'mean'
-            else:
-                agg_func = 'mean'
+                            # Define the aggregation dictionary
+                            agg_dict = {'Age': 'last', metric: agg_func, f'{metric}_cum_avg': 'last'}
 
-            # Define the aggregation dictionary
-            agg_dict = {'Age': 'last', metric: agg_func, f'{metric}_cum_avg': 'last'}
+                            # Include 'Team' and 'Position' if they exist
+                            # Identify the team column
+                            if 'Team' in metric_data.columns:
+                                agg_dict['Team'] = 'last'
+                                team_column = 'Team'
+                            elif 'Team_x' in metric_data.columns:
+                                agg_dict['Team_x'] = 'last'
+                                team_column = 'Team_x'
+                            elif 'Squad' in metric_data.columns:
+                                agg_dict['Squad'] = 'last'
+                                team_column = 'Squad'
+                            else:
+                                st.warning("Team column not found in data.")
+                                team_column = None
 
-            # Include 'Team' and 'Position' if they exist
-            # Identify the team column
-            if 'Team' in metric_data.columns:
-                agg_dict['Team'] = 'last'
-                team_column = 'Team'
-            elif 'Team_x' in metric_data.columns:
-                agg_dict['Team_x'] = 'last'
-                team_column = 'Team_x'
-            elif 'Squad' in metric_data.columns:
-                agg_dict['Squad'] = 'last'
-                team_column = 'Squad'
-            else:
-                st.warning("Team column not found in data.")
-                team_column = None
+                            if position_column in metric_data.columns:
+                                agg_dict[position_column] = 'last'
 
-            if position_column in metric_data.columns:
-                agg_dict[position_column] = 'last'
+                            # Perform the aggregation
+                            try:
+                                latest_data = metric_data.groupby('playerFullName').agg(agg_dict).reset_index()
+                            except KeyError as e:
+                                st.error(f"Column not found during aggregation: {e}")
+                                continue
 
-            # Perform the aggregation
-            try:
-                latest_data = metric_data.groupby('playerFullName').agg(agg_dict).reset_index()
-            except KeyError as e:
-                st.error(f"Column not found during aggregation: {e}")
-                continue
+                            # Round the Age column to ensure no decimals
+                            latest_data['Age'] = latest_data['Age'].round(0).astype(int)
 
-            # Round the Age column to ensure no decimals
-            latest_data['Age'] = latest_data['Age'].round(0).astype(int)
+                            # Prepare the data
+                            columns_to_select = ['playerFullName', 'Age', team_column, position_column, metric, f'{metric}_cum_avg']
+                            available_columns = [col for col in columns_to_select if col in latest_data.columns]
+                            top10 = latest_data[available_columns].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
-            # Prepare the data
-            columns_to_select = ['playerFullName', 'Age', team_column, position_column, metric, f'{metric}_cum_avg']
-            available_columns = [col for col in columns_to_select if col in latest_data.columns]
-            top10 = latest_data[available_columns].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+                            if top10.empty:
+                                st.header(f"Top 10 Players in {metric}")
+                                st.write("No data available")
+                            else:
+                                # Reset the index to create a rank column starting from 1
+                                top10.reset_index(drop=True, inplace=True)
+                                top10.index += 1
+                                top10.index.name = 'Rank'
 
-            if top10.empty:
-                st.header(f"Top 10 Players in {metric}")
-                st.write("No data available")
-            else:
-                # Reset the index to create a rank column starting from 1
-                top10.reset_index(drop=True, inplace=True)
-                top10.index += 1
-                top10.index.name = 'Rank'
+                                # Ensure the Rank column is part of the DataFrame before styling
+                                top10.reset_index(inplace=True)
 
-                # Ensure the Rank column is part of the DataFrame before styling
-                top10 = top10.reset_index()
+                                top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
-                st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
-                top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
+                                if team_column:
+                                    top10.rename(columns={team_column: 'Team'}, inplace=True)
 
-                if team_column:
-                    top10.rename(columns={team_column: 'Team'}, inplace=True)
+                                # Format the metric value with cumulative average
+                                top10[metric] = top10.apply(
+                                    lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
+                                    axis=1
+                                )
 
-                # Format the metric value with cumulative average
-                top10[metric] = top10.apply(
-                    lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
-                    axis=1
-                )
+                                # Remove the cumulative average column
+                                top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
 
-                # Create a copy of the 'Player' column for comparison
-                top10['PlainPlayerName'] = top10['Player']
+                                st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
 
-                # Function to display player names with optional star
-                def create_player_link(row):
-                    name = row['Player']
-                    star = "⭐ " if name == st.session_state.get('selected_player', '') else ""
-                    return f'{star}{name}'
+                                # Build AgGrid options
+                                gb = GridOptionsBuilder.from_dataframe(top10)
+                                gb.configure_selection(selection_mode='single', use_checkbox=False)
+                                gb.configure_pagination(enabled=False)
 
-                top10['Player'] = top10.apply(create_player_link, axis=1)
+                                # Conditional formatting to highlight U24 players
+                                cellsytle_jscode = JsCode("""
+                                function(params) {
+                                    if (params.value < 24) {
+                                        return {'backgroundColor': '#d4edda'};
+                                    }
+                                };
+                                """)
+                                gb.configure_column('Age', cellStyle=cellsytle_jscode)
 
-                # Remove 'PlainPlayerName' and cumulative average column
-                top10.drop(columns=[f'{metric}_cum_avg', 'PlainPlayerName'], inplace=True)
+                                # Add row style to highlight selected player
+                                selected_player = st.session_state.get('selected_player', '')
+                                if selected_player:
+                                    row_style_jscode = JsCode(f"""
+                                    function(params) {{
+                                        if (params.data.Player === '{selected_player}') {{
+                                            return {{'backgroundColor': 'yellow'}};
+                                        }}
+                                    }};
+                                    """)
+                                    gb.configure_grid_options(getRowStyle=row_style_jscode)
 
-                def color_row(row):
-                    styles = [''] * len(row)
-                    if row['Age'] < 24:
-                        styles = ['background-color: #d4edda'] * len(row)
-                    if row['Player'].strip('⭐ ') == st.session_state.get('selected_player', ''):
-                        styles = ['background-color: yellow'] * len(row)
-                    return styles
+                                # Handle tooltips
+                                for col_def in gb.build()['columnDefs']:
+                                    header_name = col_def['headerName']
+                                    tooltip = tooltip_headers.get(header_name, '')
+                                    if tooltip:
+                                        col_def['headerTooltip'] = tooltip
 
-                top10_styled = top10.style.apply(color_row, axis=1)
+                                grid_options = gb.build()
 
-                top10_html = top10_styled.to_html(escape=False, index=False)
+                                # Display the grid
+                                grid_response = AgGrid(
+                                    top10,
+                                    gridOptions=grid_options,
+                                    update_mode=GridUpdateMode.SELECTION_CHANGED,
+                                    data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+                                    fit_columns_on_grid_load=True,
+                                    enable_enterprise_modules=False,
+                                )
 
-                for header, tooltip in tooltip_headers.items():
-                    if tooltip:
-                        top10_html = top10_html.replace(f'>{header}<', f'><span class="tooltip">{header}<span class="tooltiptext">{tooltip}</span></span><')
+                                # Get selected rows
+                                selected_rows = grid_response['selected_rows']
+                                if selected_rows:
+                                    selected_player = selected_rows[0]['Player']
+                                    st.session_state['selected_player'] = selected_player
 
-                st.write(top10_html, unsafe_allow_html=True)
+                # Call the display_metric_tables function with updated metric names
+                display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Ratings")
+                display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
+                display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
+                display_metric_tables(offensive_metrics, "Offensive Metrics")
+                display_metric_tables(defensive_metrics, "Defensive Metrics")
+
+            # Glossary section - Render only after authentication inside an expander
+            with st.expander("Glossary"):
+                sections = {
+                    "Ratings": [
+                        'Overall Rating', 'Defensive Rating', 'Goal Threat Rating', 'Offensive Rating',
+                        'Physical Defensive Rating', 'Physical Offensive Rating'
+                    ],
+                    "Offensive Metrics": [
+                        '2ndAst', 'Ast', 'ExpG', 'ExpGExPn', 'Goal', 'GoalExPn', 'KeyPass',
+                        'MinPerChnc', 'MinPerGoal', 'PsAtt', 'PsCmp', 'Pass%', 'PsIntoA3rd',
+                        'PsRec', 'ProgCarry', 'ProgPass', 'Shot', 'OnTarget%', 'Shot conversion',
+                        'Shot/Goal', 'SOG', 'Success1v1', 'Take on into the Box',
+                        'TakeOn', 'ThrghBalls', 'TouchOpBox', 'Touches', 'xA',
+                        'xA +/-', 'xG +/-', 'xGOT'
+                    ],
+                    "Defensive Metrics": [
+                        'AdjInt', 'AdjTckl', 'Blocks', 'Clrnce', 'Int',
+                        'TcklAtt', 'Tckl', 'TcklMade%', 'TcklA3'
+                    ],
+                    "Physical Offensive Metrics": physical_offensive_metrics,
+                    "Physical Defensive Metrics": physical_defensive_metrics
+                }
+
+                # Iterate over each section
+                for section, metrics in sections.items():
+                    st.markdown(f"<h3 style='font-size:15px; color:#333; font-weight:bold;'>{section}</h3>", unsafe_allow_html=True)
+                    # Iterate over the metrics for the current section
+                    for metric in metrics:
+                        # Display the metric and its explanation in italic
+                        explanation = glossary.get(metric, "")
+                        st.markdown(f"{metric}: *{explanation}*")
+
+        else:
+            st.write("Please set your filters and click 'Run' to display the data.")
