@@ -11,3 +11,4 @@ altair
 pyarrow
 fastparquet
 gdown
+streamlit-aggrid
