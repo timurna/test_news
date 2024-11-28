@@ -44,13 +44,12 @@ def login():
 
     st.button("Login", on_click=authenticate_and_login)
 
-# Function to apply custom CSS for mobile responsiveness
+# Function to apply custom CSS for tooltips
 def set_mobile_css():
     st.markdown(
         """
         <style>
-        /* Your CSS styles */
-        /* Example CSS */
+        /* Tooltip CSS */
         .tooltip {
             position: relative;
             display: inline-block;
@@ -59,19 +58,21 @@ def set_mobile_css():
 
         .tooltip .tooltiptext {
             visibility: hidden;
-            width: 200px;
+            width: 250px;
             background-color: #555;
             color: #fff;
-            text-align: center;
+            text-align: left;
             border-radius: 6px;
-            padding: 5px;
+            padding: 10px;
             position: absolute;
             z-index: 1;
             bottom: 125%; /* Position above the text */
             left: 50%;
-            margin-left: -100px;
+            margin-left: -125px;
             opacity: 0;
             transition: opacity 0.3s;
+            font-size: 12px;
+            line-height: 1.2;
         }
 
         .tooltip:hover .tooltiptext {
@@ -114,7 +115,7 @@ else:
 
     # Load the dataset **only** after successful login
     file_url = 'https://drive.google.com/uc?id=10bzfRiZpqyRYPUaUfXUbgvptqRCE2FJN'
-    data_version = 'v3'  # Update this to a new value when your data changes
+    data_version = 'v2'  # Update this to a new value when your data changes
     data = download_and_load_data(file_url, data_version)
 
     # Check if the data was loaded successfully
@@ -125,11 +126,6 @@ else:
         # Proceed with your app
         set_mobile_css()
         st.write("Data successfully loaded!")
-
-        # Uncomment the following line to print the columns in your data for debugging
-        # st.write("Data columns:", data.columns.tolist())
-
-        # **Initialize necessary variables and minimal processing for filters**
 
         # Define position groups with potential overlaps
         position_groups = {
@@ -146,12 +142,7 @@ else:
             'ST': ['Left Winger', 'Right Winger', 'Second Striker', 'Centre Forward']
         }
 
-        # Adjust column names to match your data
-        # Uncomment the following line to print the columns in your data
-        # st.write("Data columns:", data.columns.tolist())
-
         # Based on the data columns, set the correct position column name
-        # For example, if 'Position_x' exists, use it; else, check for 'Position'
         if 'Position_x' in data.columns:
             position_column = 'Position_x'
         elif 'Position' in data.columns:
@@ -201,15 +192,26 @@ else:
 
                 filtered_weeks = week_summary[week_summary['League'] == selected_league].sort_values(by='max', ascending=False).drop_duplicates(subset=['Week'])
 
-                matchday_options = filtered_weeks['Matchday'].tolist()
+                # Calculate the number of matchdays
+                num_matchdays = len(filtered_weeks)
 
-                # Replace selectbox with multiselect
+                # Create 'All (X)' option
+                all_option = f"All ({num_matchdays})"
+
+                # Add 'All (X)' at the top of matchday options
+                matchday_options = [all_option] + filtered_weeks['Matchday'].tolist()
+
+                # Replace selectbox with multiselect including 'All'
                 selected_matchdays = st.multiselect("Select Matchdays", matchday_options, key="select_matchdays", on_change=reset_run)
 
                 # If no matchdays are selected, show a warning and stop
                 if not selected_matchdays:
                     st.warning("Please select at least one matchday.")
                     st.stop()
+
+                # If 'All (X)' is selected, use all matchdays
+                if all_option in selected_matchdays:
+                    selected_matchdays = filtered_weeks['Matchday'].tolist()
 
                 selected_weeks = filtered_weeks[filtered_weeks['Matchday'].isin(selected_matchdays)]['Week'].unique().tolist()
 
