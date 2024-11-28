@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
 import gdown
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
+import urllib.parse
 
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
@@ -17,7 +17,11 @@ if 'authenticated' not in st.session_state:
 
 # Initialize 'selected_player' in session state
 if 'selected_player' not in st.session_state:
-    st.session_state['selected_player'] = None
+    params = st.experimental_get_query_params()
+    if 'selected_player' in params:
+        st.session_state['selected_player'] = params['selected_player'][0]
+    else:
+        st.session_state['selected_player'] = None
 
 def authenticate(username, password):
     try:
@@ -529,7 +533,15 @@ else:
                                 st.header(f"Top 10 Players in {metric}")
                                 st.write("No data available")
                             else:
-                                # Rename columns for display
+                                # Reset the index to create a rank column starting from 1
+                                top10.reset_index(drop=True, inplace=True)
+                                top10.index += 1
+                                top10.index.name = 'Rank'
+
+                                # Ensure the Rank column is part of the DataFrame before styling
+                                top10 = top10.reset_index()
+
+                                st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
                                 top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
                                 if team_column:
@@ -544,59 +556,37 @@ else:
                                 # Remove the cumulative average column from the DataFrame as it's now included in the metric column
                                 top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
 
-                                # Reset the index to create a rank column starting from 1
-                                top10.reset_index(drop=True, inplace=True)
-                                top10.index += 1
-                                top10.reset_index(inplace=True)
-                                top10.rename(columns={'index': 'Rank'}, inplace=True)
+                                # Create a copy of the 'Player' column for comparison
+                                top10['PlainPlayerName'] = top10['Player']
 
-                                # Prepare tooltip text
-                                column_tooltips = {}
+                                # Function to create clickable player names with optional star
+                                def create_player_link(row):
+                                    name = row['Player']
+                                    name_encoded = urllib.parse.quote(name)
+                                    star = "⭐ " if name == st.session_state.get('selected_player', '') else ""
+                                    return f'{star}<a href="?selected_player={name_encoded}">{name}</a>'
+
+                                top10['Player'] = top10.apply(create_player_link, axis=1)
+
+                                def color_row(row):
+                                    styles = [''] * len(row)
+                                    if row['Age'] < 24:
+                                        styles = ['background-color: #d4edda'] * len(row)
+                                    if row['PlainPlayerName'] == st.session_state.get('selected_player', ''):
+                                        styles = ['background-color: yellow'] * len(row)
+                                    return styles
+
+                                # Drop the 'PlainPlayerName' column after use
+                                top10.drop(columns=['PlainPlayerName'], inplace=True)
+
+                                top10_styled = top10.style.apply(color_row, axis=1)
+                                top10_html = top10_styled.to_html(escape=False)
+
                                 for header, tooltip in tooltip_headers.items():
-                                    if tooltip and header in top10.columns:
-                                        column_tooltips[header] = tooltip
+                                    if tooltip:
+                                        top10_html = top10_html.replace(f'>{header}<', f'><span class="tooltip">{header}<span class="tooltiptext">{tooltip}</span></span><')
 
-                                # Highlight the selected player
-                                def highlight_row(s):
-                                    is_selected = s['Player'] == st.session_state.get('selected_player', None)
-                                    return ['background-color: yellow' if is_selected else '' for _ in s]
-
-                                # Build AgGrid options
-                                gb = GridOptionsBuilder.from_dataframe(top10)
-                                gb.configure_selection(selection_mode='single', use_checkbox=False)
-                                gb.configure_default_column(toolTipField='tooltip')
-                                # Set tooltips
-                                for col in top10.columns:
-                                    if col in column_tooltips:
-                                        gb.configure_column(col, headerTooltip=column_tooltips[col])
-
-                                grid_options = gb.build()
-
-                                # Display the table using AgGrid
-                                grid_response = AgGrid(
-                                    top10,
-                                    gridOptions=grid_options,
-                                    height=300,
-                                    update_mode=GridUpdateMode.SELECTION_CHANGED,
-                                    allow_unsafe_jscode=True,
-                                    fit_columns_on_grid_load=True,
-                                )
-
-                                # Capture selected player
-                                if grid_response['selected_rows']:
-                                    selected_player = grid_response['selected_rows'][0]['Player']
-                                    st.session_state['selected_player'] = selected_player
-                                else:
-                                    selected_player = None
-
-                                # Apply highlighting based on selected player
-                                if st.session_state.get('selected_player'):
-                                    top10_style = top10.style.apply(highlight_row, axis=1)
-                                else:
-                                    top10_style = top10
-
-                                st.write(f"<h2>{metric}</h2>", unsafe_allow_html=True)
-                                # Note: Since we already displayed the table with AgGrid, we don't need to display it again here.
+                                st.write(top10_html, unsafe_allow_html=True)
 
                             # If the metric is 'PSV-99', also display the overall top 10
                             if metric == 'PSV-99':
@@ -638,6 +628,15 @@ else:
                                     st.header(f"Top 10 Players in {metric} (Overall)")
                                     st.write("No data available")
                                 else:
+                                    # Reset the index to create a rank column starting from 1
+                                    top10_overall.reset_index(drop=True, inplace=True)
+                                    top10_overall.index += 1
+                                    top10_overall.index.name = 'Rank'
+
+                                    # Ensure the Rank column is part of the DataFrame before styling
+                                    top10_overall = top10_overall.reset_index()
+
+                                    st.markdown(f"<h2>{metric} (Overall)</h2>", unsafe_allow_html=True)
                                     top10_overall.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
                                     if team_column_overall:
@@ -652,59 +651,37 @@ else:
                                     # Remove the cumulative average column from the DataFrame as it's now included in the metric column
                                     top10_overall.drop(columns=[f'{metric}_cum_avg'], inplace=True)
 
-                                    # Reset the index to create a rank column starting from 1
-                                    top10_overall.reset_index(drop=True, inplace=True)
-                                    top10_overall.index += 1
-                                    top10_overall.reset_index(inplace=True)
-                                    top10_overall.rename(columns={'index': 'Rank'}, inplace=True)
+                                    # Create a copy of the 'Player' column for comparison
+                                    top10_overall['PlainPlayerName'] = top10_overall['Player']
 
-                                    # Prepare tooltip text
-                                    column_tooltips_overall = {}
+                                    # Function to create clickable player names with optional star
+                                    def create_player_link_overall(row):
+                                        name = row['Player']
+                                        name_encoded = urllib.parse.quote(name)
+                                        star = "⭐ " if name == st.session_state.get('selected_player', '') else ""
+                                        return f'{star}<a href="?selected_player={name_encoded}">{name}</a>'
+
+                                    top10_overall['Player'] = top10_overall.apply(create_player_link_overall, axis=1)
+
+                                    def color_row_overall(row):
+                                        styles = [''] * len(row)
+                                        if row['Age'] < 24:
+                                            styles = ['background-color: #d4edda'] * len(row)
+                                        if row['PlainPlayerName'] == st.session_state.get('selected_player', ''):
+                                            styles = ['background-color: yellow'] * len(row)
+                                        return styles
+
+                                    # Drop the 'PlainPlayerName' column after use
+                                    top10_overall.drop(columns=['PlainPlayerName'], inplace=True)
+
+                                    top10_overall_styled = top10_overall.style.apply(color_row_overall, axis=1)
+                                    top10_overall_html = top10_overall_styled.to_html(escape=False)
+
                                     for header, tooltip in tooltip_headers.items():
-                                        if tooltip and header in top10_overall.columns:
-                                            column_tooltips_overall[header] = tooltip
+                                        if tooltip:
+                                            top10_overall_html = top10_overall_html.replace(f'>{header}<', f'><span class="tooltip">{header}<span class="tooltiptext">{tooltip}</span></span><')
 
-                                    # Highlight the selected player
-                                    def highlight_row_overall(s):
-                                        is_selected = s['Player'] == st.session_state.get('selected_player', None)
-                                        return ['background-color: yellow' if is_selected else '' for _ in s]
-
-                                    # Build AgGrid options
-                                    gb_overall = GridOptionsBuilder.from_dataframe(top10_overall)
-                                    gb_overall.configure_selection(selection_mode='single', use_checkbox=False)
-                                    gb_overall.configure_default_column(toolTipField='tooltip')
-                                    # Set tooltips
-                                    for col in top10_overall.columns:
-                                        if col in column_tooltips_overall:
-                                            gb_overall.configure_column(col, headerTooltip=column_tooltips_overall[col])
-
-                                    grid_options_overall = gb_overall.build()
-
-                                    # Display the table using AgGrid
-                                    grid_response_overall = AgGrid(
-                                        top10_overall,
-                                        gridOptions=grid_options_overall,
-                                        height=300,
-                                        update_mode=GridUpdateMode.SELECTION_CHANGED,
-                                        allow_unsafe_jscode=True,
-                                        fit_columns_on_grid_load=True,
-                                    )
-
-                                    # Capture selected player
-                                    if grid_response_overall['selected_rows']:
-                                        selected_player_overall = grid_response_overall['selected_rows'][0]['Player']
-                                        st.session_state['selected_player'] = selected_player_overall
-                                    else:
-                                        selected_player_overall = None
-
-                                    # Apply highlighting based on selected player
-                                    if st.session_state.get('selected_player'):
-                                        top10_overall_style = top10_overall.style.apply(highlight_row_overall, axis=1)
-                                    else:
-                                        top10_overall_style = top10_overall
-
-                                    st.write(f"<h2>{metric} (Overall)</h2>", unsafe_allow_html=True)
-                                    # Note: Since we already displayed the table with AgGrid, we don't need to display it again here.
+                                    st.write(top10_overall_html, unsafe_allow_html=True)
 
                 # Call the display_metric_tables function with updated metric names
                 display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Ratings")
