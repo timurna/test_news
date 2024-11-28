@@ -553,9 +553,6 @@ else:
                                     axis=1
                                 )
 
-                                # Remove the cumulative average column from the DataFrame as it's now included in the metric column
-                                top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
-
                                 # Create a copy of the 'Player' column for comparison
                                 top10['PlainPlayerName'] = top10['Player']
 
@@ -576,10 +573,11 @@ else:
                                         styles = ['background-color: yellow'] * len(row)
                                     return styles
 
-                                # Drop the 'PlainPlayerName' column after use
-                                top10.drop(columns=['PlainPlayerName'], inplace=True)
-
                                 top10_styled = top10.style.apply(color_row, axis=1)
+
+                                # Remove the cumulative average column and 'PlainPlayerName' after styling
+                                top10.drop(columns=[f'{metric}_cum_avg', 'PlainPlayerName'], inplace=True)
+
                                 top10_html = top10_styled.to_html(escape=False)
 
                                 for header, tooltip in tooltip_headers.items():
@@ -648,9 +646,6 @@ else:
                                         axis=1
                                     )
 
-                                    # Remove the cumulative average column from the DataFrame as it's now included in the metric column
-                                    top10_overall.drop(columns=[f'{metric}_cum_avg'], inplace=True)
-
                                     # Create a copy of the 'Player' column for comparison
                                     top10_overall['PlainPlayerName'] = top10_overall['Player']
 
@@ -671,10 +666,11 @@ else:
                                             styles = ['background-color: yellow'] * len(row)
                                         return styles
 
-                                    # Drop the 'PlainPlayerName' column after use
-                                    top10_overall.drop(columns=['PlainPlayerName'], inplace=True)
-
                                     top10_overall_styled = top10_overall.style.apply(color_row_overall, axis=1)
+
+                                    # Remove the cumulative average column and 'PlainPlayerName' after styling
+                                    top10_overall.drop(columns=[f'{metric}_cum_avg', 'PlainPlayerName'], inplace=True)
+
                                     top10_overall_html = top10_overall_styled.to_html(escape=False)
 
                                     for header, tooltip in tooltip_headers.items():
