@@ -230,7 +230,7 @@ else:
 
             # Glossary content with metrics integrated
             glossary = {
-                'Rating Metrics': '',
+                'Ratings': '',
                 'Overall Rating': 'Player\'s overall performance across all metrics.',
                 'Defensive Rating': 'Player\'s overall defensive performance. Metrics: TcklMade%, TcklAtt, Tckl, AdjTckl, TcklA3, Blocks, Int, AdjInt, Clrnce',
                 'Goal Threat Rating': 'Player\'s threat to score goals. Metrics: Goal, Shot/Goal, MinPerGoal, ExpG, xGOT, xG +/- , Shot, SOG, Shot conversion, OnTarget%',
@@ -633,7 +633,7 @@ else:
                                     st.write(top10_overall_html, unsafe_allow_html=True)
 
                 # Call the display_metric_tables function with updated metric names
-                display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Rating Metrics")
+                display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Ratings")
                 display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
                 display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
                 display_metric_tables(offensive_metrics, "Offensive Metrics")
@@ -642,7 +642,7 @@ else:
             # Glossary section - Render only after authentication inside an expander
             with st.expander("Glossary"):
                 sections = {
-                    "Rating Metrics": [
+                    "Ratings": [
                         'Overall Rating', 'Defensive Rating', 'Goal Threat Rating', 'Offensive Rating',
                         'Physical Defensive Rating', 'Physical Offensive Rating'
                     ],
