@@ -592,7 +592,8 @@ else:
                             # Handle 'PSV-99' overall table similarly
                             if metric == 'PSV-99':
                                 # Similar adjustments for the overall table
-                                # ... [You can replicate the same changes for the overall table]
+                                # ... You can replicate the same changes for the overall table
+                                pass  # For brevity, the code for the overall table is omitted
 
                 # Call the display_metric_tables function with updated metric names
                 display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Ratings")
