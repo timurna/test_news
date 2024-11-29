@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
 import gdown
-from collections import Counter
+from collections import defaultdict
 
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
@@ -492,17 +492,24 @@ else:
             with st.container():
                 tooltip_headers = {metric: glossary.get(metric, '') for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics}
 
-                # Initialize a list to collect top players
-                top_players_list = []
+                # Initialize a dictionary to collect mentions per player per rating metric
+                mentions_dict = defaultdict(lambda: defaultdict(int))
 
-                def display_metric_tables(metrics_list, title, collect_top_players=False):
-                    with st.expander(title, expanded=False):
-                        for metric in metrics_list:
+                # List to collect all players for info
+                player_info_set = set()
+
+                # Start of the "Ratings" section
+                with st.expander("Ratings", expanded=False):
+                    # Loop over each selected matchday
+                    for week in selected_weeks:
+                        week_data = league_and_position_data[league_and_position_data['Week'] == week]
+
+                        # For each rating metric
+                        for metric in ['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating']:
                             if metric not in data.columns:
-                                st.write(f"Metric {metric} not found in the data")
                                 continue
 
-                            metric_data = league_and_position_data
+                            metric_data = week_data
 
                             # Determine aggregation function
                             if metric in count_metrics:
@@ -548,113 +555,105 @@ else:
                             available_columns = [col for col in columns_to_select if col in latest_data.columns]
                             top10 = latest_data[available_columns].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
-                            if top10.empty:
-                                st.header(f"Top 10 Players in {metric}")
-                                st.write("No data available")
+                            if not top10.empty:
+                                # Collect mentions
+                                for _, row in top10.iterrows():
+                                    player = row['playerFullName']
+                                    mentions_dict[player][metric] += 1
+                                    player_info_set.add((player, row['Age'], row.get(team_column, ''), row.get(position_column, '')))
+
+                            # Reset the index and create 'Rank' column
+                            top10.reset_index(drop=True, inplace=True)
+                            top10['Rank'] = top10.index + 1
+
+                            # Move 'Rank' to the front
+                            cols = ['Rank'] + [col for col in top10.columns if col != 'Rank']
+                            top10 = top10[cols]
+
+                            # Set 'Rank' as the index
+                            top10.set_index('Rank', inplace=True)
+
+                            top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
+
+                            if team_column:
+                                top10.rename(columns={team_column: 'Team'}, inplace=True)
+
+                            # Format the metric value with cumulative average
+                            top10[metric] = top10.apply(
+                                lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
+                                axis=1
+                            )
+
+                            # Remove the cumulative average column
+                            top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
+
+                            # Reorder columns to place 'Min' after 'Position'
+                            cols = ['Player', 'Age', 'Team', 'Position', 'Min', metric]
+                            top10 = top10[cols]
+
+                            st.markdown(f"<h2>{metric} - Matchday {week}</h2>", unsafe_allow_html=True)
+
+                            # Apply conditional formatting to highlight U24 players
+                            def color_row(row):
+                                if row['Age'] < 24:
+                                    return ['background-color: #d4edda'] * len(row)
+                                else:
+                                    return [''] * len(row)
+
+                            top10_styled = top10.style.apply(color_row, axis=1)
+
+                            # Display the table using st.dataframe
+                            st.dataframe(top10_styled)
+
+                    # After processing ratings, create the table of most mentioned players
+                    if mentions_dict:
+                        # Prepare the DataFrame
+                        mentions_list = []
+                        for player, metrics_counts in mentions_dict.items():
+                            total_mentions = sum(metrics_counts.values())
+                            row = {'Player': player, 'Total Mentions': total_mentions}
+                            row.update(metrics_counts)
+                            mentions_list.append(row)
+
+                        mentions_df = pd.DataFrame(mentions_list)
+
+                        # Get player info
+                        player_info_df = pd.DataFrame(player_info_set, columns=['Player', 'Age', 'Team', 'Position'])
+
+                        # Merge with player info
+                        mentions_df = mentions_df.merge(player_info_df, on='Player', how='left')
+
+                        # Reorder columns
+                        cols = ['Player', 'Age', 'Team', 'Position', 'Total Mentions'] + rating_metrics
+                        mentions_df = mentions_df[['Player', 'Age', 'Team', 'Position', 'Total Mentions'] + [metric for metric in rating_metrics if metric in mentions_df.columns]]
+
+                        # Sort by Total Mentions descending
+                        mentions_df = mentions_df.sort_values(by='Total Mentions', ascending=False)
+
+                        # Reset index and add 'Rank' column
+                        mentions_df.reset_index(drop=True, inplace=True)
+                        mentions_df['Rank'] = mentions_df.index + 1
+
+                        # Set 'Rank' as the index
+                        mentions_df.set_index('Rank', inplace=True)
+
+                        st.markdown("<h2>Most Mentioned Players in Ratings Metrics Across Matchdays</h2>", unsafe_allow_html=True)
+
+                        # Apply conditional formatting to highlight U24 players
+                        def color_row(row):
+                            if row['Age'] < 24:
+                                return ['background-color: #d4edda'] * len(row)
                             else:
-                                # Reset the index and create 'Rank' column
-                                top10.reset_index(drop=True, inplace=True)
-                                top10['Rank'] = top10.index + 1
+                                return [''] * len(row)
 
-                                # Move 'Rank' to the front
-                                cols = ['Rank'] + [col for col in top10.columns if col != 'Rank']
-                                top10 = top10[cols]
+                        mentions_styled = mentions_df.style.apply(color_row, axis=1)
 
-                                # Set 'Rank' as the index
-                                top10.set_index('Rank', inplace=True)
-
-                                top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
-
-                                if team_column:
-                                    top10.rename(columns={team_column: 'Team'}, inplace=True)
-
-                                # Format the metric value with cumulative average
-                                top10[metric] = top10.apply(
-                                    lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
-                                    axis=1
-                                )
-
-                                # Remove the cumulative average column
-                                top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
-
-                                # Reorder columns to place 'Min' after 'Position'
-                                cols = ['Player', 'Age', 'Team', 'Position', 'Min', metric]
-                                top10 = top10[cols]
-
-                                st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
-
-                                # Apply conditional formatting to highlight U24 players
-                                def color_row(row):
-                                    if row['Age'] < 24:
-                                        return ['background-color: #d4edda'] * len(row)
-                                    else:
-                                        return [''] * len(row)
-
-                                top10_styled = top10.style.apply(color_row, axis=1)
-
-                                # Display the table using st.dataframe
-                                st.dataframe(top10_styled)
-
-                                # Collect top players if required
-                                if collect_top_players:
-                                    top_players_list.extend(top10['Player'].tolist())
-
-                # Call the display_metric_tables function with updated metric names
-                display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Ratings", collect_top_players=True)
-
-                # After processing ratings, create the table of most mentioned players
-                if top_players_list:
-                    # Count the occurrences of each player
-                    player_counts = Counter(top_players_list)
-
-                    # Convert to DataFrame
-                    player_counts_df = pd.DataFrame(player_counts.items(), columns=['Player', 'Mentions'])
-
-                    # Get player info for players in the league and position group filters
-                    player_info_columns = ['playerFullName', 'Age', position_column]
-                    if team_column:
-                        player_info_columns.append(team_column)
-                    player_info_data = league_and_position_data[player_info_columns].drop_duplicates()
-                    player_info_data.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
-
-                    if team_column:
-                        player_info_data.rename(columns={team_column: 'Team'}, inplace=True)
-
-                    # Merge counts with player info
-                    player_counts_df = player_counts_df.merge(player_info_data, on='Player', how='left')
-
-                    # Sort by 'Mentions' descending
-                    player_counts_df = player_counts_df.sort_values(by='Mentions', ascending=False)
-
-                    # Reset index and add 'Rank' column
-                    player_counts_df.reset_index(drop=True, inplace=True)
-                    player_counts_df['Rank'] = player_counts_df.index + 1
-
-                    # Set 'Rank' as the index
-                    player_counts_df.set_index('Rank', inplace=True)
-
-                    # Reorder columns
-                    cols = ['Player', 'Age', 'Team', 'Position', 'Mentions']
-                    player_counts_df = player_counts_df[cols]
-
-                    st.markdown("<h2>Most Mentioned Players in Ratings Metrics</h2>", unsafe_allow_html=True)
-
-                    # Apply conditional formatting to highlight U24 players
-                    def color_row(row):
-                        if row['Age'] < 24:
-                            return ['background-color: #d4edda'] * len(row)
-                        else:
-                            return [''] * len(row)
-
-                    player_counts_styled = player_counts_df.style.apply(color_row, axis=1)
-
-                    st.dataframe(player_counts_styled)
+                        st.dataframe(mentions_styled)
 
                 # Continue with other metric sections
-                display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
-                display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
-                display_metric_tables(offensive_metrics, "Offensive Metrics")
-                display_metric_tables(defensive_metrics, "Defensive Metrics")
+                display_metric_tables = None  # You can remove the previous function since we've adjusted the code
+
+                # If you want to include other sections, adjust accordingly
 
             # Glossary section - Render only after authentication inside an expander
             with st.expander("Glossary"):
