@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
 import gdown
+from collections import Counter
 
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
@@ -87,7 +88,7 @@ def set_mobile_css():
 @st.cache_data
 def download_and_load_data(file_url, data_version):
     # Define the file path for the downloaded parquet file
-    parquet_file = f'/tmp/newup_{data_version}.parquet'
+    parquet_file = f'/tmp/newup1_{data_version}.parquet'
 
     # Download the file using gdown with fuzzy=True
     try:
@@ -114,8 +115,8 @@ else:
     st.write("Welcome! You are logged in.")
 
     # Load the dataset **only** after successful login
-    file_url = 'https://drive.google.com/uc?id=10bzfRiZpqyRYPUaUfXUbgvptqRCE2FJN'
-    data_version = 'v2'  # Update this to a new value when your data changes
+    file_url = 'https://drive.google.com/uc?id=1kvnOz-wzAOKf8IxqV-vZIjiQtZ5IFsi0'
+    data_version = 'v3'  # Update this to a new value when your data changes
     data = download_and_load_data(file_url, data_version)
 
     # Check if the data was loaded successfully
@@ -480,7 +481,11 @@ else:
             with st.container():
                 tooltip_headers = {metric: glossary.get(metric, '') for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics}
 
-                def display_metric_tables(metrics_list, title):
+                # Initialize a list to collect top players
+                top_players_list = []
+
+                def display_metric_tables(metrics_list, title, collect_top_players=False):
+                    global top_players_list  # Declare as global to modify the list outside the function
                     with st.expander(title, expanded=False):
                         for metric in metrics_list:
                             if metric not in data.columns:
@@ -591,9 +596,60 @@ else:
 
                                 # Display the table using st.dataframe
                                 st.dataframe(top10_styled)
-                                
+
+                                # Collect top players if required
+                                if collect_top_players:
+                                    top_players_list.extend(top10['Player'].tolist())
+
                 # Call the display_metric_tables function with updated metric names
-                display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Ratings")
+                display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Ratings", collect_top_players=True)
+
+                # After processing ratings, create the table of most mentioned players
+                if top_players_list:
+                    # Count the occurrences of each player
+                    player_counts = Counter(top_players_list)
+
+                    # Convert to DataFrame
+                    player_counts_df = pd.DataFrame(player_counts.items(), columns=['Player', 'Mentions'])
+
+                    # Get player info for players in the league and position group filters
+                    player_info_data = league_and_position_data[['playerFullName', 'Age', team_column, position_column]].drop_duplicates()
+                    player_info_data.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
+
+                    if team_column:
+                        player_info_data.rename(columns={team_column: 'Team'}, inplace=True)
+
+                    # Merge counts with player info
+                    player_counts_df = player_counts_df.merge(player_info_data, on='Player', how='left')
+
+                    # Sort by 'Mentions' descending
+                    player_counts_df = player_counts_df.sort_values(by='Mentions', ascending=False)
+
+                    # Reset index and add 'Rank' column
+                    player_counts_df.reset_index(drop=True, inplace=True)
+                    player_counts_df['Rank'] = player_counts_df.index + 1
+
+                    # Set 'Rank' as the index
+                    player_counts_df.set_index('Rank', inplace=True)
+
+                    # Reorder columns
+                    cols = ['Player', 'Age', 'Team', 'Position', 'Mentions']
+                    player_counts_df = player_counts_df[cols]
+
+                    st.markdown("<h2>Most Mentioned Players in Ratings Metrics</h2>", unsafe_allow_html=True)
+
+                    # Apply conditional formatting to highlight U24 players
+                    def color_row(row):
+                        if row['Age'] < 24:
+                            return ['background-color: #d4edda'] * len(row)
+                        else:
+                            return [''] * len(row)
+
+                    player_counts_styled = player_counts_df.style.apply(color_row, axis=1)
+
+                    st.dataframe(player_counts_styled)
+
+                # Continue with other metric sections
                 display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
                 display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
                 display_metric_tables(offensive_metrics, "Offensive Metrics")
