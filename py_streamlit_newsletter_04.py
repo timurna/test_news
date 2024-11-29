@@ -459,6 +459,17 @@ else:
                 (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
             ]
 
+            # Identify the team column globally
+            if 'Team' in league_and_position_data.columns:
+                team_column = 'Team'
+            elif 'Team_x' in league_and_position_data.columns:
+                team_column = 'Team_x'
+            elif 'Squad' in league_and_position_data.columns:
+                team_column = 'Squad'
+            else:
+                st.warning("Team column not found in data.")
+                team_column = None
+
             # Define metrics that are counts and should be summed
             count_metrics = [
                 'Goal', 'Ast', 'KeyPass', 'Shot', 'SOG', 'TakeOn', 'Success1v1', 'Blocks', 'Int', 'Clrnce',
@@ -485,7 +496,6 @@ else:
                 top_players_list = []
 
                 def display_metric_tables(metrics_list, title, collect_top_players=False):
-                    global top_players_list  # Declare as global to modify the list outside the function
                     with st.expander(title, expanded=False):
                         for metric in metrics_list:
                             if metric not in data.columns:
@@ -505,20 +515,8 @@ else:
                             # Define the aggregation dictionary
                             agg_dict = {'Age': 'last', metric: agg_func, f'{metric}_cum_avg': 'last', 'Min': 'sum'}
 
-                            # Include 'Team' and 'Position' if they exist
-                            # Identify the team column
-                            if 'Team' in metric_data.columns:
-                                agg_dict['Team'] = 'last'
-                                team_column = 'Team'
-                            elif 'Team_x' in metric_data.columns:
-                                agg_dict['Team_x'] = 'last'
-                                team_column = 'Team_x'
-                            elif 'Squad' in metric_data.columns:
-                                agg_dict['Squad'] = 'last'
-                                team_column = 'Squad'
-                            else:
-                                st.warning("Team column not found in data.")
-                                team_column = None
+                            if team_column:
+                                agg_dict[team_column] = 'last'
 
                             if position_column in metric_data.columns:
                                 agg_dict[position_column] = 'last'
@@ -613,7 +611,10 @@ else:
                     player_counts_df = pd.DataFrame(player_counts.items(), columns=['Player', 'Mentions'])
 
                     # Get player info for players in the league and position group filters
-                    player_info_data = league_and_position_data[['playerFullName', 'Age', team_column, position_column]].drop_duplicates()
+                    player_info_columns = ['playerFullName', 'Age', position_column]
+                    if team_column:
+                        player_info_columns.append(team_column)
+                    player_info_data = league_and_position_data[player_info_columns].drop_duplicates()
                     player_info_data.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
                     if team_column:
