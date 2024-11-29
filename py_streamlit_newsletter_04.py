@@ -661,6 +661,9 @@ else:
                         cols = ['Player', 'Age', 'Team', 'Position', 'Total Mentions'] + rating_metrics_to_collect
                         mentions_df = mentions_df[cols]
 
+                        # **Round 'Age' to remove decimals**
+                        mentions_df['Age'] = mentions_df['Age'].round(0).astype(int)
+
                         # Sort by Total Mentions descending
                         mentions_df = mentions_df.sort_values(by='Total Mentions', ascending=False)
 
@@ -671,7 +674,8 @@ else:
                         # Set 'Rank' as the index
                         mentions_df.set_index('Rank', inplace=True)
 
-                        st.markdown("<h2>Most Mentioned Players in Ratings Metrics Across All Matchdays</h2>", unsafe_allow_html=True)
+                        # **Update the headline**
+                        st.markdown("<h2>Most Mentioned Players</h2>", unsafe_allow_html=True)
 
                         # Apply conditional formatting to highlight U24 players
                         def color_row(row):
