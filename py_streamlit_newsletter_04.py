@@ -550,12 +550,11 @@ else:
                                 st.write("No data available")
                             else:
                                 # Reset the index to create a rank column starting from 1
-                                top10.reset_index(drop=True, inplace=True)
+                                top10 = top10.reset_index(drop=True)
                                 top10.index += 1
-                                top10.index.name = 'Rank'
-
-                                # Ensure the Rank column is part of the DataFrame before styling
-                                top10.reset_index(inplace=True)
+                                top10['Rank'] = top10.index
+                                # Move 'Rank' to the front
+                                top10 = top10[['Rank'] + [col for col in top10.columns if col != 'Rank']]
 
                                 top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
