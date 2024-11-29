@@ -459,12 +459,19 @@ else:
                 (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
             ]
 
+            # **Data for Mentions Calculation:**
+            # Data filtered by League and Position Group only (all matchdays)
+            league_position_all_data = data[
+                (data['League'] == selected_league) &
+                (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
+            ]
+
             # Identify the team column globally
-            if 'Team' in league_and_position_data.columns:
+            if 'Team' in data.columns:
                 team_column = 'Team'
-            elif 'Team_x' in league_and_position_data.columns:
+            elif 'Team_x' in data.columns:
                 team_column = 'Team_x'
-            elif 'Squad' in league_and_position_data.columns:
+            elif 'Squad' in data.columns:
                 team_column = 'Squad'
             else:
                 st.warning("Team column not found in data.")
@@ -503,6 +510,7 @@ else:
                         if metric not in data.columns:
                             continue
 
+                        # Use data filtered by selected matchdays for the tables
                         metric_data = league_and_position_data
 
                         # Determine aggregation function
@@ -550,8 +558,22 @@ else:
                         top10 = latest_data[available_columns].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
                         if not top10.empty:
+                            # Collect mentions using data from all matchdays
+                            # Use the aggregated data from league_position_all_data
+                            mentions_metric_data = league_position_all_data
+
+                            # Perform aggregation over all matchdays
+                            try:
+                                mentions_agg_data = mentions_metric_data.groupby('playerFullName').agg(agg_dict).reset_index()
+                            except KeyError as e:
+                                st.error(f"Column not found during aggregation for mentions: {e}")
+                                continue
+
+                            # Sort and get top 10 players over all matchdays
+                            mentions_top10 = mentions_agg_data.dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+
                             # Collect mentions
-                            for _, row in top10.iterrows():
+                            for _, row in mentions_top10.iterrows():
                                 player = row['playerFullName']
                                 if player not in mentions_dict:
                                     mentions_dict[player] = {'Player': player, 'Age': row['Age'], 'Team': row.get(team_column, ''), 'Position': row.get(position_column, ''), 'Total Mentions': 0}
