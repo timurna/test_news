@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
 import gdown
-from collections import Counter
 
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
@@ -496,52 +495,58 @@ else:
             ] + rating_metrics
 
             # **Collect Mentions Over All Matchdays**
+            # Get all unique matchdays in the data for the selected league and position group
+            all_weeks = league_position_all_data['Week'].unique()
+
             # Initialize mentions_dict
             mentions_dict = {}
             rating_metrics_to_collect = ['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating']
 
-            for metric in rating_metrics_to_collect:
-                if metric not in data.columns:
-                    continue
+            for week in all_weeks:
+                week_data = league_position_all_data[league_position_all_data['Week'] == week]
 
-                mentions_metric_data = league_position_all_data
+                for metric in rating_metrics_to_collect:
+                    if metric not in data.columns:
+                        continue
 
-                # Determine aggregation function
-                if metric in count_metrics:
-                    agg_func = 'sum'
-                elif metric in average_metrics or metric in percentage_metrics:
-                    agg_func = 'mean'
-                else:
-                    agg_func = 'mean'
+                    metric_data = week_data
 
-                # Define the aggregation dictionary
-                agg_dict = {'Age': 'last', metric: agg_func, f'{metric}_cum_avg': 'last', 'Min': 'sum'}
+                    # Determine aggregation function
+                    if metric in count_metrics:
+                        agg_func = 'sum'
+                    elif metric in average_metrics or metric in percentage_metrics:
+                        agg_func = 'mean'
+                    else:
+                        agg_func = 'mean'
 
-                if team_column:
-                    agg_dict[team_column] = 'last'
+                    # Define the aggregation dictionary
+                    agg_dict = {'Age': 'last', metric: agg_func, 'Min': 'sum'}
 
-                if position_column in mentions_metric_data.columns:
-                    agg_dict[position_column] = 'last'
+                    if team_column:
+                        agg_dict[team_column] = 'last'
 
-                # Perform aggregation over all matchdays
-                try:
-                    mentions_agg_data = mentions_metric_data.groupby('playerFullName').agg(agg_dict).reset_index()
-                except KeyError as e:
-                    st.error(f"Column not found during aggregation for mentions: {e}")
-                    continue
+                    if position_column in metric_data.columns:
+                        agg_dict[position_column] = 'last'
 
-                # Sort and get top 10 players over all matchdays
-                mentions_top10 = mentions_agg_data.dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+                    # Perform the aggregation
+                    try:
+                        aggregated_data = metric_data.groupby('playerFullName').agg(agg_dict).reset_index()
+                    except KeyError as e:
+                        st.error(f"Column not found during aggregation for mentions: {e}")
+                        continue
 
-                # Collect mentions
-                for _, row in mentions_top10.iterrows():
-                    player = row['playerFullName']
-                    if player not in mentions_dict:
-                        mentions_dict[player] = {'Player': player, 'Age': row['Age'], 'Team': row.get(team_column, ''), 'Position': row.get(position_column, ''), 'Total Mentions': 0}
-                        for m in rating_metrics_to_collect:
-                            mentions_dict[player][m] = 0
-                    mentions_dict[player]['Total Mentions'] += 1
-                    mentions_dict[player][metric] += 1
+                    # Get top 10 players for this metric in this week
+                    top10 = aggregated_data.dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+
+                    # Collect mentions
+                    for _, row in top10.iterrows():
+                        player = row['playerFullName']
+                        if player not in mentions_dict:
+                            mentions_dict[player] = {'Player': player, 'Age': row['Age'], 'Team': row.get(team_column, ''), 'Position': row.get(position_column, ''), 'Total Mentions': 0}
+                            for m in rating_metrics_to_collect:
+                                mentions_dict[player][m] = 0
+                        mentions_dict[player]['Total Mentions'] += 1
+                        mentions_dict[player][metric] += 1
 
             # Use a container to make the expandable sections span the full width
             with st.container():
