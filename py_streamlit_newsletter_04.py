@@ -549,12 +549,13 @@ else:
                                 st.header(f"Top 10 Players in {metric}")
                                 st.write("No data available")
                             else:
-                                # Reset the index to create a rank column starting from 1
-                                top10 = top10.reset_index(drop=True)
-                                top10.index += 1
-                                top10['Rank'] = top10.index
+                                # Reset the index and create 'Rank' column
+                                top10.reset_index(drop=True, inplace=True)
+                                top10['Rank'] = top10.index + 1
+
                                 # Move 'Rank' to the front
-                                top10 = top10[['Rank'] + [col for col in top10.columns if col != 'Rank']]
+                                cols = ['Rank'] + [col for col in top10.columns if col != 'Rank']
+                                top10 = top10[cols]
 
                                 top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
@@ -583,7 +584,7 @@ else:
                                     else:
                                         return [''] * len(row)
 
-                                top10_styled = top10.style.apply(color_row, axis=1)
+                                top10_styled = top10.style.apply(color_row, axis=1).hide_index()
 
                                 # Display the table using st.dataframe
                                 st.dataframe(top10_styled)
