@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
 import gdown
-import urllib.parse
 
 # Set the page configuration to wide mode
 st.set_page_config(layout="wide")
@@ -14,10 +13,6 @@ data = None
 # Ensure 'authenticated' is initialized in session state
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
-
-# Initialize 'selected_player' in session state
-if 'selected_player' not in st.session_state:
-    st.session_state['selected_player'] = None
 
 def authenticate(username, password):
     try:
@@ -237,15 +232,86 @@ else:
 
             # Glossary content with metrics integrated
             glossary = {
-                'Ratings': '',
+                'Ratings': 'A collection of aggregated performance metrics.',
                 'Overall Rating': 'Player\'s overall performance across all metrics.',
-                'Defensive Rating': 'Player\'s overall defensive performance. Metrics: TcklMade%, TcklAtt, Tckl, AdjTckl, TcklA3, Blocks, Int, AdjInt, Clrnce',
-                'Goal Threat Rating': 'Player\'s threat to score goals. Metrics: Goal, Shot/Goal, MinPerGoal, ExpG, xGOT, xG +/- , Shot, SOG, Shot conversion, OnTarget%',
-                'Offensive Rating': 'Player\'s overall offensive performance. Metrics: 2ndAst, Ast, ExpG, ExpGExPn, Goal, GoalExPn, KeyPass, MinPerChnc, MinPerGoal, PsAtt, PsCmp, Pass%, PsIntoA3rd, PsRec, ProgCarry, ProgPass, Shot, Shot conversion, Shot/Goal, SOG, OnTarget%, Success1v1, Take on into the Box, TakeOn, ThrghBalls, TouchOpBox, Touches, xA, xA +/- , xG +/- , xGOT',
-                'Physical Offensive Rating': 'Player\'s physical contributions to offensive play. Metrics: PSV-99, Distance, M/min, HSR Distance, HSR Count, Sprint Distance, Sprint Count, HI Distance, HI Count, Medium Acceleration Count, High Acceleration Count, Medium Deceleration Count, High Deceleration Count',
-                'Physical Defensive Rating': 'Player\'s physical contributions to defensive play. Metrics: Distance OTIP, M/min OTIP, HSR Distance OTIP, HSR Count OTIP, Sprint Distance OTIP, Sprint Count OTIP, HI Distance OTIP, HI Count OTIP, Medium Acceleration Count OTIP, High Acceleration Count OTIP, Medium Deceleration Count OTIP, High Deceleration Count OTIP',
+                'Defensive Rating': 'Player\'s overall defensive performance. Metrics include various defensive actions.',
+                'Goal Threat Rating': 'Player\'s threat to score goals. Metrics include shots, expected goals, etc.',
+                'Offensive Rating': 'Player\'s overall offensive performance. Metrics include assists, key passes, etc.',
+                'Physical Offensive Rating': 'Player\'s physical contributions to offensive play.',
+                'Physical Defensive Rating': 'Player\'s physical contributions to defensive play.',
                 'Min': 'Minutes played in the selected matchday(s) (total minutes played across all matchdays)',
-                # ... rest of the glossary entries
+                # Physical Metrics
+                'PSV-99': 'Player\'s physical performance score compared to peers.',
+                'Distance': 'Total distance covered by the player.',
+                'M/min': 'Meters covered per minute.',
+                'HSR Distance': 'High-speed running distance.',
+                'HSR Count': 'Number of high-speed runs.',
+                'Sprint Distance': 'Total sprint distance.',
+                'Sprint Count': 'Number of sprints.',
+                'HI Distance': 'High-intensity running distance.',
+                'HI Count': 'Number of high-intensity runs.',
+                'Medium Acceleration Count': 'Number of medium accelerations.',
+                'High Acceleration Count': 'Number of high accelerations.',
+                'Medium Deceleration Count': 'Number of medium decelerations.',
+                'High Deceleration Count': 'Number of high decelerations.',
+                'Distance OTIP': 'Distance covered out of team possession.',
+                'M/min OTIP': 'Meters per minute out of team possession.',
+                'HSR Distance OTIP': 'High-speed running distance out of team possession.',
+                'HSR Count OTIP': 'High-speed run count out of team possession.',
+                'Sprint Distance OTIP': 'Sprint distance out of team possession.',
+                'Sprint Count OTIP': 'Sprint count out of team possession.',
+                'HI Distance OTIP': 'High-intensity distance out of team possession.',
+                'HI Count OTIP': 'High-intensity count out of team possession.',
+                'Medium Acceleration Count OTIP': 'Medium accelerations out of team possession.',
+                'High Acceleration Count OTIP': 'High accelerations out of team possession.',
+                'Medium Deceleration Count OTIP': 'Medium decelerations out of team possession.',
+                'High Deceleration Count OTIP': 'High decelerations out of team possession.',
+                # Offensive Metrics
+                '2ndAst': 'Secondary assists.',
+                'Ast': 'Assists.',
+                'ExpG': 'Expected goals.',
+                'ExpGExPn': 'Expected goals excluding penalties.',
+                'Goal': 'Goals scored.',
+                'GoalExPn': 'Goals excluding penalties.',
+                'KeyPass': 'Passes leading directly to a shot.',
+                'MinPerChnc': 'Minutes per chance created.',
+                'MinPerGoal': 'Minutes per goal scored.',
+                'PsAtt': 'Passes attempted.',
+                'PsCmp': 'Passes completed.',
+                'Pass%': 'Pass completion percentage.',
+                'PsIntoA3rd': 'Passes into the attacking third.',
+                'PsRec': 'Passes received.',
+                'ProgCarry': 'Progressive carries.',
+                'ProgPass': 'Progressive passes.',
+                'Shot': 'Shots taken.',
+                'Shot conversion': 'Percentage of shots resulting in goals.',
+                'Shot/Goal': 'Shots per goal.',
+                'SOG': 'Shots on goal.',
+                'OnTarget%': 'Percentage of shots on target.',
+                'Success1v1': 'Successful one-on-one take-ons.',
+                'Take on into the Box': 'Take-ons into the penalty box.',
+                'TakeOn': 'Total take-ons attempted.',
+                'ThrghBalls': 'Through balls.',
+                'TouchOpBox': 'Touches in the opposition box.',
+                'Touches': 'Total touches.',
+                'xA': 'Expected assists.',
+                'xA +/-': 'Expected assists above or below average.',
+                'xG +/-': 'Expected goals above or below average.',
+                'xGOT': 'Expected goals on target.',
+                # Defensive Metrics
+                'AdjInt': 'Adjusted interceptions.',
+                'AdjTckl': 'Adjusted tackles.',
+                'Blocks': 'Blocks made.',
+                'Clrnce': 'Clearances.',
+                'Int': 'Interceptions.',
+                'TcklAtt': 'Tackle attempts.',
+                'Tckl': 'Tackles made.',
+                'TcklMade%': 'Percentage of successful tackles.',
+                'TcklA3': 'Tackles in the attacking third.',
+                # Percentage Metrics
+                'OnTarget%': 'Percentage of shots on target.',
+                'Pass%': 'Pass completion percentage.',
+                'TcklMade%': 'Percentage of tackles made successfully.',
             }
 
             # Perform data processing steps here
@@ -511,11 +577,9 @@ else:
 
                                 st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
 
-                                # Apply conditional formatting
+                                # Apply conditional formatting to highlight U24 players
                                 def color_row(row):
-                                    if row['Player'] == st.session_state.get('selected_player', ''):
-                                        return ['background-color: yellow'] * len(row)
-                                    elif row['Age'] < 24:
+                                    if row['Age'] < 24:
                                         return ['background-color: #d4edda'] * len(row)
                                     else:
                                         return [''] * len(row)
