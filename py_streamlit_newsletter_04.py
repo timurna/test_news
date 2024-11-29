@@ -557,6 +557,9 @@ else:
                                 cols = ['Rank'] + [col for col in top10.columns if col != 'Rank']
                                 top10 = top10[cols]
 
+                                # Set 'Rank' as the index
+                                top10.set_index('Rank', inplace=True)
+
                                 top10.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
 
                                 if team_column:
@@ -572,7 +575,7 @@ else:
                                 top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
 
                                 # Reorder columns to place 'Min' after 'Position'
-                                cols = ['Rank', 'Player', 'Age', 'Team', 'Position', 'Min', metric]
+                                cols = ['Player', 'Age', 'Team', 'Position', 'Min', metric]
                                 top10 = top10[cols]
 
                                 st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
@@ -584,11 +587,11 @@ else:
                                     else:
                                         return [''] * len(row)
 
-                                top10_styled = top10.style.apply(color_row, axis=1).hide_index()
+                                top10_styled = top10.style.apply(color_row, axis=1)
 
                                 # Display the table using st.dataframe
                                 st.dataframe(top10_styled)
-
+                                
                 # Call the display_metric_tables function with updated metric names
                 display_metric_tables(['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating'], "Ratings")
                 display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
