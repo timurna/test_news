@@ -495,22 +495,65 @@ else:
                 'HI Distance OTIP', 'HSR Distance', 'HSR Distance OTIP', 'Sprint Distance', 'Sprint Distance OTIP'
             ] + rating_metrics
 
+            # **Collect Mentions Over All Matchdays**
+            # Initialize mentions_dict
+            mentions_dict = {}
+            rating_metrics_to_collect = ['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating']
+
+            for metric in rating_metrics_to_collect:
+                if metric not in data.columns:
+                    continue
+
+                mentions_metric_data = league_position_all_data
+
+                # Determine aggregation function
+                if metric in count_metrics:
+                    agg_func = 'sum'
+                elif metric in average_metrics or metric in percentage_metrics:
+                    agg_func = 'mean'
+                else:
+                    agg_func = 'mean'
+
+                # Define the aggregation dictionary
+                agg_dict = {'Age': 'last', metric: agg_func, f'{metric}_cum_avg': 'last', 'Min': 'sum'}
+
+                if team_column:
+                    agg_dict[team_column] = 'last'
+
+                if position_column in mentions_metric_data.columns:
+                    agg_dict[position_column] = 'last'
+
+                # Perform aggregation over all matchdays
+                try:
+                    mentions_agg_data = mentions_metric_data.groupby('playerFullName').agg(agg_dict).reset_index()
+                except KeyError as e:
+                    st.error(f"Column not found during aggregation for mentions: {e}")
+                    continue
+
+                # Sort and get top 10 players over all matchdays
+                mentions_top10 = mentions_agg_data.dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+
+                # Collect mentions
+                for _, row in mentions_top10.iterrows():
+                    player = row['playerFullName']
+                    if player not in mentions_dict:
+                        mentions_dict[player] = {'Player': player, 'Age': row['Age'], 'Team': row.get(team_column, ''), 'Position': row.get(position_column, ''), 'Total Mentions': 0}
+                        for m in rating_metrics_to_collect:
+                            mentions_dict[player][m] = 0
+                    mentions_dict[player]['Total Mentions'] += 1
+                    mentions_dict[player][metric] += 1
+
             # Use a container to make the expandable sections span the full width
             with st.container():
                 tooltip_headers = {metric: glossary.get(metric, '') for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics}
 
-                # Initialize a dictionary to collect mentions per player per rating metric
-                mentions_dict = {}
-                rating_metrics_to_collect = ['Overall Rating', 'Offensive Rating', 'Goal Threat Rating', 'Defensive Rating', 'Physical Offensive Rating', 'Physical Defensive Rating']
-
                 # Start of the "Ratings" section
                 with st.expander("Ratings", expanded=False):
-                    # For each rating metric
+                    # Now, display the tables for each metric, using selected matchdays
                     for metric in rating_metrics_to_collect:
                         if metric not in data.columns:
                             continue
 
-                        # Use data filtered by selected matchdays for the tables
                         metric_data = league_and_position_data
 
                         # Determine aggregation function
@@ -557,30 +600,10 @@ else:
                         available_columns = [col for col in columns_to_select if col in latest_data.columns]
                         top10 = latest_data[available_columns].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
-                        if not top10.empty:
-                            # Collect mentions using data from all matchdays
-                            # Use the aggregated data from league_position_all_data
-                            mentions_metric_data = league_position_all_data
-
-                            # Perform aggregation over all matchdays
-                            try:
-                                mentions_agg_data = mentions_metric_data.groupby('playerFullName').agg(agg_dict).reset_index()
-                            except KeyError as e:
-                                st.error(f"Column not found during aggregation for mentions: {e}")
-                                continue
-
-                            # Sort and get top 10 players over all matchdays
-                            mentions_top10 = mentions_agg_data.dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
-
-                            # Collect mentions
-                            for _, row in mentions_top10.iterrows():
-                                player = row['playerFullName']
-                                if player not in mentions_dict:
-                                    mentions_dict[player] = {'Player': player, 'Age': row['Age'], 'Team': row.get(team_column, ''), 'Position': row.get(position_column, ''), 'Total Mentions': 0}
-                                    for m in rating_metrics_to_collect:
-                                        mentions_dict[player][m] = 0
-                                mentions_dict[player]['Total Mentions'] += 1
-                                mentions_dict[player][metric] += 1
+                        if top10.empty:
+                            st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
+                            st.write("No data available")
+                            continue
 
                         # Reset the index and create 'Rank' column
                         top10.reset_index(drop=True, inplace=True)
