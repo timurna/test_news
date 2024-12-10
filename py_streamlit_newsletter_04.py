@@ -87,7 +87,7 @@ def set_mobile_css():
 @st.cache_data
 def download_and_load_data(file_url, data_version):
     # Define the file path for the downloaded parquet file
-    parquet_file = f'/tmp/newup3_{data_version}.parquet'
+    parquet_file = f'/tmp/newup_{data_version}.parquet'
 
     # Download the file using gdown with fuzzy=True
     try:
@@ -114,8 +114,8 @@ else:
     st.write("Welcome! You are logged in.")
 
     # Load the dataset **only** after successful login
-    file_url = 'https://drive.google.com/uc?id=1iBCnl-ajQiJDS1-kMEECz_t5t5hrMNyE'
-    data_version = 'v3'  # Update this to a new value when your data changes
+    file_url = 'https://drive.google.com/uc?id=1p9fhwYwSkHcYE1FGS4d7hhd29zg_QBG8'
+    data_version = 'v1'  # Update this to a new value when your data changes
     data = download_and_load_data(file_url, data_version)
 
     # Check if the data was loaded successfully
