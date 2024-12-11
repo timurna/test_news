@@ -115,7 +115,7 @@ else:
 
     # Load the dataset **only** after successful login
     file_url = 'https://drive.google.com/uc?id=1p9fhwYwSkHcYE1FGS4d7hhd29zg_QBG8'
-    data_version = 'v1'  # Update this to a new value when your data changes
+    data_version = 'v3'  # Update this to a new value when your data changes
     data = download_and_load_data(file_url, data_version)
 
     # Check if the data was loaded successfully
@@ -661,9 +661,6 @@ else:
                         cols = ['Player', 'Age', 'Team', 'Position', 'Total Mentions'] + rating_metrics_to_collect
                         mentions_df = mentions_df[cols]
 
-                        # **Round 'Age' to remove decimals**
-                        mentions_df['Age'] = mentions_df['Age'].round(0).astype(int)
-
                         # Sort by Total Mentions descending
                         mentions_df = mentions_df.sort_values(by='Total Mentions', ascending=False)
 
@@ -674,8 +671,7 @@ else:
                         # Set 'Rank' as the index
                         mentions_df.set_index('Rank', inplace=True)
 
-                        # **Update the headline**
-                        st.markdown("<h2>Most Mentioned Players</h2>", unsafe_allow_html=True)
+                        st.markdown("<h2>Most Mentioned Players in Ratings Metrics Across All Matchdays</h2>", unsafe_allow_html=True)
 
                         # Apply conditional formatting to highlight U24 players
                         def color_row(row):
