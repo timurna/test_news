@@ -186,7 +186,7 @@ else:
                 week_summary['min'] = pd.to_datetime(week_summary['min'])
                 week_summary['max'] = pd.to_datetime(week_summary['max'])
 
-                # Convert Week to int before creating the Matchday string to avoid decimals
+                # Convert Week to int to avoid decimals in Matchday display
                 week_summary['Week'] = week_summary['Week'].astype(int)
 
                 week_summary['Matchday'] = week_summary.apply(
@@ -365,7 +365,7 @@ else:
             ))
 
             for metric in all_metrics:
-                if metric in data.columns and metric not in percentage_metrics:  # Exclude percentage metrics already processed
+                if metric in data.columns and metric not in percentage_metrics:
                     data[metric] = pd.to_numeric(data[metric].astype(str).str.replace(',', '.'), errors='coerce')
 
             # Ensure 'Min' column is numeric
@@ -428,6 +428,9 @@ else:
                 quantile_transformer.fit_transform(data[goal_threat_metrics].fillna(0))
             ).mean(axis=1)
 
+            rating_metrics = ['Overall Rating', 'Physical Offensive Rating', 'Physical Defensive Rating',
+                              'Offensive Rating', 'Defensive Rating', 'Goal Threat Rating']
+
             data['Overall Rating'] = data[['Physical Offensive Rating', 'Physical Defensive Rating',
                                            'Offensive Rating', 'Defensive Rating', 'Goal Threat Rating']].mean(axis=1)
 
@@ -435,9 +438,6 @@ else:
             data = data.sort_values(['League', 'playerFullName', 'Date'])
 
             # Create a list of metrics for which we want cumulative averages
-            rating_metrics = ['Overall Rating', 'Physical Offensive Rating', 'Physical Defensive Rating',
-                              'Offensive Rating', 'Defensive Rating', 'Goal Threat Rating']
-
             metrics_for_cum_avg = rating_metrics + physical_offensive_metrics + physical_defensive_metrics + offensive_metrics + defensive_metrics
             metrics_for_cum_avg = list(set(metrics_for_cum_avg))
 
@@ -445,7 +445,7 @@ else:
             for metric in metrics_for_cum_avg:
                 data[f'{metric}_cum_avg'] = data.groupby(['League', 'playerFullName'])[metric].expanding().mean().reset_index(level=[0, 1], drop=True)
 
-            # Filter the data by the selected position group and the selected matchdays
+            # Filter data by the selected position group and the selected matchdays
             league_and_position_data = data[
                 (data['League'] == selected_league) &
                 (data['Week'].isin(selected_weeks)) &
@@ -458,7 +458,7 @@ else:
                 (data['Position Groups'].apply(lambda groups: selected_position_group in groups))
             ]
 
-            # Identify the team column
+            # Identify the team column globally
             if 'Team' in data.columns:
                 team_column = 'Team'
             elif 'Team_x' in data.columns:
@@ -531,7 +531,6 @@ else:
                         mentions_dict[player]['Total Mentions'] += 1
                         mentions_dict[player][metric] += 1
 
-            # Use a container to make the expandable sections span the full width
             with st.container():
                 tooltip_headers = {metric: glossary.get(metric, '') for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics}
 
@@ -570,7 +569,6 @@ else:
                         minutes_total.rename(columns={'Min': 'Min_Total'}, inplace=True)
 
                         latest_data = latest_data.merge(minutes_total, on='playerFullName', how='left')
-
                         latest_data['Min'] = latest_data.apply(
                             lambda row: f"{int(row['Min'])} ({int(row['Min_Total'])})", axis=1
                         )
@@ -598,7 +596,6 @@ else:
                             lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
                             axis=1
                         )
-
                         top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
                         cols = ['Player', 'Age', 'Team', 'Position', 'Min', metric]
                         top10 = top10[cols]
@@ -618,13 +615,11 @@ else:
                         mentions_df = pd.DataFrame.from_dict(mentions_dict, orient='index')
                         cols = ['Player', 'Age', 'Team', 'Position', 'Total Mentions'] + rating_metrics_to_collect
                         mentions_df = mentions_df[cols]
-
                         mentions_df['Age'] = mentions_df['Age'].round(0).astype(int)
                         mentions_df = mentions_df.sort_values(by='Total Mentions', ascending=False)
                         mentions_df.reset_index(drop=True, inplace=True)
                         mentions_df['Rank'] = mentions_df.index + 1
                         mentions_df.set_index('Rank', inplace=True)
-
                         st.markdown("<h2>Most Mentioned Players</h2>", unsafe_allow_html=True)
 
                         def color_row(row):
@@ -636,7 +631,7 @@ else:
                         mentions_styled = mentions_df.style.apply(color_row, axis=1)
                         st.dataframe(mentions_styled)
 
-                # Function to display other metric tables
+                # Function to display other metric tables (including PSV-99 overall top 10)
                 def display_metric_tables(metrics_list, title):
                     with st.expander(title, expanded=False):
                         for metric in metrics_list:
@@ -671,9 +666,7 @@ else:
 
                             minutes_total = data.groupby('playerFullName')['Min'].sum().reset_index()
                             minutes_total.rename(columns={'Min': 'Min_Total'}, inplace=True)
-
                             latest_data = latest_data.merge(minutes_total, on='playerFullName', how='left')
-
                             latest_data['Min'] = latest_data.apply(
                                 lambda row: f"{int(row['Min'])} ({int(row['Min_Total'])})", axis=1
                             )
@@ -682,8 +675,9 @@ else:
                             available_columns = [col for col in columns_to_select if col in latest_data.columns]
                             top10 = latest_data[available_columns].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
 
+                            st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
+
                             if top10.empty:
-                                st.header(f"Top 10 Players in {metric}")
                                 st.write("No data available")
                             else:
                                 top10.reset_index(drop=True, inplace=True)
@@ -700,12 +694,9 @@ else:
                                     lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
                                     axis=1
                                 )
-
                                 top10.drop(columns=[f'{metric}_cum_avg'], inplace=True)
                                 cols = ['Player', 'Age', 'Team', 'Position', 'Min', metric]
                                 top10 = top10[cols]
-
-                                st.markdown(f"<h2>{metric}</h2>", unsafe_allow_html=True)
 
                                 def color_row(row):
                                     if row['Age'] < 24:
@@ -716,7 +707,69 @@ else:
                                 top10_styled = top10.style.apply(color_row, axis=1)
                                 st.dataframe(top10_styled)
 
-                # Display other metrics
+                            # If the metric is 'PSV-99', also display the overall top 10 (ignoring position group)
+                            if metric == 'PSV-99':
+                                metric_data_overall = data[
+                                    (data['League'] == selected_league) &
+                                    (data['Week'].isin(selected_weeks))
+                                ]
+
+                                agg_dict_overall = {'Age': 'last', metric: agg_func, f'{metric}_cum_avg': 'last', 'Min': 'sum'}
+                                if team_column:
+                                    agg_dict_overall[team_column] = 'last'
+                                if position_column in metric_data_overall.columns:
+                                    agg_dict_overall[position_column] = 'last'
+
+                                try:
+                                    latest_data_overall = metric_data_overall.groupby('playerFullName').agg(agg_dict_overall).reset_index()
+                                except KeyError as e:
+                                    st.error(f"Column not found during aggregation: {e}")
+                                    continue
+
+                                latest_data_overall['Age'] = latest_data_overall['Age'].round(0).astype(int)
+                                minutes_total_overall = data.groupby('playerFullName')['Min'].sum().reset_index()
+                                minutes_total_overall.rename(columns={'Min': 'Min_Total'}, inplace=True)
+                                latest_data_overall = latest_data_overall.merge(minutes_total_overall, on='playerFullName', how='left')
+                                latest_data_overall['Min'] = latest_data_overall.apply(
+                                    lambda row: f"{int(row['Min'])} ({int(row['Min_Total'])})", axis=1
+                                )
+
+                                columns_to_select_overall = ['playerFullName', 'Age', team_column, position_column, 'Min', metric, f'{metric}_cum_avg']
+                                available_columns_overall = [col for col in columns_to_select_overall if col in latest_data_overall.columns]
+                                top10_overall = latest_data_overall[available_columns_overall].dropna(subset=[metric]).sort_values(by=metric, ascending=False).head(10)
+
+                                if not top10_overall.empty:
+                                    top10_overall.reset_index(drop=True, inplace=True)
+                                    top10_overall['Rank'] = top10_overall.index + 1
+                                    cols_overall = ['Rank'] + [col for col in top10_overall.columns if col != 'Rank']
+                                    top10_overall = top10_overall[cols_overall]
+                                    top10_overall.set_index('Rank', inplace=True)
+
+                                    top10_overall.rename(columns={'playerFullName': 'Player', position_column: 'Position'}, inplace=True)
+                                    if team_column:
+                                        top10_overall.rename(columns={team_column: 'Team'}, inplace=True)
+
+                                    top10_overall[metric] = top10_overall.apply(
+                                        lambda row: f"{row[metric]:.2f} ({row[f'{metric}_cum_avg']:.2f})" if pd.notnull(row[f'{metric}_cum_avg']) else f"{row[metric]:.2f}",
+                                        axis=1
+                                    )
+
+                                    top10_overall.drop(columns=[f'{metric}_cum_avg'], inplace=True)
+                                    cols_overall = ['Player', 'Age', 'Team', 'Position', 'Min', metric]
+                                    top10_overall = top10_overall[cols_overall]
+
+                                    st.markdown(f"<h2>{metric} (Overall Top 10)</h2>", unsafe_allow_html=True)
+
+                                    def color_row_overall(row):
+                                        if row['Age'] < 24:
+                                            return ['background-color: #d4edda'] * len(row)
+                                        else:
+                                            return [''] * len(row)
+
+                                    top10_overall_styled = top10_overall.style.apply(color_row_overall, axis=1)
+                                    st.dataframe(top10_overall_styled)
+
+                # Display metric tables
                 display_metric_tables(physical_offensive_metrics, "Physical Offensive Metrics")
                 display_metric_tables(physical_defensive_metrics, "Physical Defensive Metrics")
                 display_metric_tables(offensive_metrics, "Offensive Metrics")
