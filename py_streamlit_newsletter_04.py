@@ -87,7 +87,7 @@ def set_mobile_css():
 @st.cache_data
 def download_and_load_data(file_url, data_version):
     # Define the file path for the downloaded parquet file
-    parquet_file = f'/tmp/newup_{data_version}.parquet'
+    parquet_file = f'/tmp/newup1_{data_version}.parquet'
 
     # Download the file using gdown with fuzzy=True
     try:
@@ -114,7 +114,7 @@ else:
     st.write("Welcome! You are logged in.")
 
     # Load the dataset **only** after successful login
-    file_url = 'https://drive.google.com/uc?id=1p9fhwYwSkHcYE1FGS4d7hhd29zg_QBG8'
+    file_url = 'https://drive.google.com/uc?id=1ZvAdT75Pt0HPc76cyAqldFR_j6nbBmQm'
     data_version = 'v1'  # Update this to a new value when your data changes
     data = download_and_load_data(file_url, data_version)
 
@@ -166,7 +166,7 @@ else:
             st.session_state['run_clicked'] = True
 
         # Display the logo at the top
-        st.image('logo.png', use_column_width=False, width=800)
+        st.image('logo.png', use_container_width=True, width=800)
 
         # Create a single row for all the filters
         with st.container():
