@@ -166,7 +166,7 @@ else:
             st.session_state['run_clicked'] = True
 
         # Display the logo at the top
-        st.image('logo.png', use_container_width=True, width=800)
+        st.image('logo.png', width=800)
 
         # Create a single row for all the filters
         with st.container():
