@@ -114,7 +114,7 @@ else:
     st.write("Welcome! You are logged in.")
 
     # Load the dataset **only** after successful login
-    file_url = 'https://drive.google.com/uc?id=1ZvAdT75Pt0HPc76cyAqldFR_j6nbBmQm'
+    file_url = 'https://drive.google.com/uc?id=1V56NTgYn4ug5QoSzC7v8x4EOfC35PY4h'
     data_version = 'v1'  # Update this to a new value when your data changes
     data = download_and_load_data(file_url, data_version)
 
@@ -166,7 +166,7 @@ else:
             st.session_state['run_clicked'] = True
 
         # Display the logo at the top
-        st.image('logo.png', width=800)
+        st.image('logo.png', use_container_width=True, width=800)
 
         # Create a single row for all the filters
         with st.container():
