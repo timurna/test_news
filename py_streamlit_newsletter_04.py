@@ -114,7 +114,7 @@ else:
     st.write("Welcome! You are logged in.")
 
     # Load the dataset **only** after successful login
-    file_url = 'https://drive.google.com/uc?id=1kKIQJuNQ1jMJYRcNGK0GXC_caaVV2I_T'
+    file_url = 'https://drive.google.com/uc?id=1D37Z0Yrhu3231TJv4fv7GAW0Sx4bNgmm'
     data_version = 'v1'  # Update this to a new value when your data changes
     data = download_and_load_data(file_url, data_version)
 
