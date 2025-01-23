@@ -483,12 +483,29 @@ else:
                 ).mean(axis=1)
             )
 
-            # --- 6) Pass Rating with LOG TRANSFORM ---
-            #    Here we log1p() the pass metrics to reduce skew before scaling.
-            pass_subset = data[pass_metrics].fillna(0)
+            # --- 6) Pass Rating with LOG TRANSFORM and WEIGHTING BEFORE LOG ---
+            # Define your weighting scheme for pass metrics
+            weights = {
+                'PsAtt': 1.0,
+                'PsCmp': 1.0,
+                'Pass%': 1.0,
+                'PsIntoA3rd': 2.0,  # <--- ADJUSTED (double weight)
+                'KeyPass': 2.0,    # <--- ADJUSTED (double weight)
+                'ThrghBalls': 2.0  # <--- ADJUSTED (double weight)
+            }
+
+            pass_subset = data[pass_metrics].fillna(0).copy()
+            # Multiply raw metric values by weights before log transform
+            for col in pass_metrics:
+                pass_subset[col] = pass_subset[col] * weights[col]  # <--- ADJUSTED
+
+            # Now apply log1p() to handle skew
             pass_logged = np.log1p(pass_subset)  # log(1 + x)
+
             pass_transformed = quantile_transformer.fit_transform(pass_logged)
             pass_scaled = scaler.fit_transform(pass_transformed)
+
+            # We use the mean of these scaled features as the final 'Pass Rating'
             data['Pass Rating'] = pass_scaled.mean(axis=1)
 
             # Gather all rating columns
