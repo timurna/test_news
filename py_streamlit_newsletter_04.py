@@ -263,6 +263,8 @@ else:
                 'Physical Offensive Rating': 'Player\'s physical contributions to offensive play.',
                 'Physical Defensive Rating': 'Player\'s physical contributions to defensive play.',
                 'Pass Rating': 'Player\'s overall passing performance. Metrics include pass attempts, completion, key passes, through balls, etc.',
+                'Activity Rating': 'Player\'s involvement in moves, receiving passes, and touches in advanced areas. (Touches, TouchOpBox, PsRec)',
+                'Ballcarrier Rating': 'Player\'s ability to carry the ball forward and beat opponents. (TakeOn, Success1v1, Take on into the Box, ProgCarry)',
                 'Min': 'Minutes played in the selected matchday(s) (total minutes played across all matchdays)',
                 # Physical Metrics
                 'PSV-99': 'Player\'s physical performance score compared to peers.',
@@ -389,9 +391,19 @@ else:
                 'Shot', 'SOG', 'Shot conversion', 'OnTarget%'
             ]
 
+            # NEW: Activity & Ballcarrier metric groups
+            activity_metrics = ['Touches', 'TouchOpBox', 'PsRec']
+            ballcarrier_metrics = ['TakeOn', 'Success1v1', 'Take on into the Box', 'ProgCarry']
+
             # Combine all metrics for processing
             all_metrics = list(set(
-                physical_metrics + offensive_metrics + defensive_metrics + goal_threat_metrics + percentage_metrics
+                physical_metrics
+                + offensive_metrics
+                + defensive_metrics
+                + goal_threat_metrics
+                + percentage_metrics
+                + activity_metrics
+                + ballcarrier_metrics
             ))
 
             # Convert numeric columns (excluding the already handled percentages)
@@ -420,6 +432,8 @@ else:
             fill_na_conditionally(data, offensive_metrics)
             fill_na_conditionally(data, defensive_metrics)
             fill_na_conditionally(data, goal_threat_metrics)
+            fill_na_conditionally(data, activity_metrics)
+            fill_na_conditionally(data, ballcarrier_metrics)
 
             # Initialize the scalers
             scaler = MinMaxScaler(feature_range=(0, 10))
@@ -441,10 +455,18 @@ else:
                 'High Deceleration Count OTIP'
             ]
 
-            # Define pass metrics
+            # Define pass metrics (with weighting logic already in place before log transform)
             pass_metrics = [
                 'PsAtt', 'PsCmp', 'Pass%', 'PsIntoA3rd', 'KeyPass', 'ThrghBalls'
             ]
+            weights = {
+                'PsAtt': 1.0,
+                'PsCmp': 1.0,
+                'Pass%': 1.0,
+                'PsIntoA3rd': 2.0,
+                'KeyPass': 2.0,
+                'ThrghBalls': 2.0
+            }
 
             # --- Calculate the Ratings ---
 
@@ -483,30 +505,29 @@ else:
                 ).mean(axis=1)
             )
 
-            # --- 6) Pass Rating with LOG TRANSFORM and WEIGHTING BEFORE LOG ---
-            # Define your weighting scheme for pass metrics
-            weights = {
-                'PsAtt': 1.0,
-                'PsCmp': 1.0,
-                'Pass%': 1.0,
-                'PsIntoA3rd': 2.0,  # <--- ADJUSTED (double weight)
-                'KeyPass': 2.0,    # <--- ADJUSTED (double weight)
-                'ThrghBalls': 2.0  # <--- ADJUSTED (double weight)
-            }
-
+            # 6) Pass Rating with LOG TRANSFORM + weighting **before** log
             pass_subset = data[pass_metrics].fillna(0).copy()
-            # Multiply raw metric values by weights before log transform
             for col in pass_metrics:
-                pass_subset[col] = pass_subset[col] * weights[col]  # <--- ADJUSTED
+                pass_subset[col] = pass_subset[col] * weights[col]
 
-            # Now apply log1p() to handle skew
-            pass_logged = np.log1p(pass_subset)  # log(1 + x)
-
+            pass_logged = np.log1p(pass_subset)
             pass_transformed = quantile_transformer.fit_transform(pass_logged)
             pass_scaled = scaler.fit_transform(pass_transformed)
-
-            # We use the mean of these scaled features as the final 'Pass Rating'
             data['Pass Rating'] = pass_scaled.mean(axis=1)
+
+            # 7) Activity Rating (no log, no extra weighting)
+            data['Activity Rating'] = (
+                scaler.fit_transform(
+                    quantile_transformer.fit_transform(data[activity_metrics].fillna(0))
+                ).mean(axis=1)
+            )
+
+            # 8) Ballcarrier Rating (no log, no extra weighting)
+            data['Ballcarrier Rating'] = (
+                scaler.fit_transform(
+                    quantile_transformer.fit_transform(data[ballcarrier_metrics].fillna(0))
+                ).mean(axis=1)
+            )
 
             # Gather all rating columns
             rating_metrics = [
@@ -516,10 +537,13 @@ else:
                 'Offensive Rating',
                 'Defensive Rating',
                 'Goal Threat Rating',
-                'Pass Rating'
+                'Pass Rating',
+                'Activity Rating',
+                'Ballcarrier Rating'
             ]
 
-            # Calculate Overall Rating (including Pass Rating)
+            # Calculate Overall Rating (including Pass Rating). 
+            # NOTE: If you want to include the new ratings in Overall Rating, add them here.
             data['Overall Rating'] = data[[
                 'Physical Offensive Rating',
                 'Physical Defensive Rating',
@@ -539,6 +563,8 @@ else:
                 + physical_defensive_metrics
                 + offensive_metrics
                 + defensive_metrics
+                + activity_metrics
+                + ballcarrier_metrics
             )
             metrics_for_cum_avg = list(set(metrics_for_cum_avg))
 
@@ -604,7 +630,9 @@ else:
                 'Defensive Rating',
                 'Physical Offensive Rating',
                 'Physical Defensive Rating',
-                'Pass Rating'
+                'Pass Rating',
+                'Activity Rating',
+                'Ballcarrier Rating'
             ]
 
             for week in all_weeks:
@@ -655,7 +683,12 @@ else:
             with st.container():
                 tooltip_headers = {
                     metric: glossary.get(metric, '')
-                    for metric in rating_metrics + physical_metrics + offensive_metrics + defensive_metrics
+                    for metric in rating_metrics
+                    + physical_metrics
+                    + offensive_metrics
+                    + defensive_metrics
+                    + activity_metrics
+                    + ballcarrier_metrics
                 }
 
                 # Ratings Section
@@ -955,8 +988,15 @@ else:
             with st.expander("Glossary"):
                 sections = {
                     "Ratings": [
-                        'Overall Rating', 'Defensive Rating', 'Goal Threat Rating', 'Offensive Rating',
-                        'Physical Defensive Rating', 'Physical Offensive Rating', 'Pass Rating'
+                        'Overall Rating',
+                        'Defensive Rating',
+                        'Goal Threat Rating',
+                        'Offensive Rating',
+                        'Physical Defensive Rating',
+                        'Physical Offensive Rating',
+                        'Pass Rating',
+                        'Activity Rating',
+                        'Ballcarrier Rating'
                     ],
                     "Offensive Metrics": [
                         '2ndAst', 'Ast', 'ExpG', 'ExpGExPn', 'Goal', 'GoalExPn', 'KeyPass',
@@ -971,7 +1011,9 @@ else:
                         'TcklAtt', 'Tckl', 'TcklMade%', 'TcklA3'
                     ],
                     "Physical Offensive Metrics": physical_offensive_metrics,
-                    "Physical Defensive Metrics": physical_defensive_metrics
+                    "Physical Defensive Metrics": physical_defensive_metrics,
+                    "Activity Metrics": activity_metrics,
+                    "Ballcarrier Metrics": ballcarrier_metrics
                 }
 
                 for section, metrics in sections.items():
