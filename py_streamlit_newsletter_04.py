@@ -627,12 +627,12 @@ else:
                 'Overall Rating',
                 'Offensive Rating',
                 'Goal Threat Rating',
-                'Defensive Rating',
-                'Physical Offensive Rating',
-                'Physical Defensive Rating',
                 'Pass Rating',
                 'Activity Rating',
-                'Ballcarrier Rating'
+                'Ballcarrier Rating',
+                'Defensive Rating',
+                'Physical Offensive Rating',
+                'Physical Defensive Rating'
             ]
 
             for week in all_weeks:
